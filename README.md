@@ -1,4 +1,6 @@
-# PingDom AI Web
+<img width="7680" height="4320" alt="Frame_123678" src="https://github.com/user-attachments/assets/77637e72-ba1c-4f16-8217-bfa702a743fb" />
+
+---
 
 ## Overview
 
