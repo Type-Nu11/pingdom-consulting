@@ -7,6 +7,8 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react'
+import type { LocationSelection } from '../../features/location/location.types'
+import LocationSelectionPanel from './LocationSelectionPanel'
 import * as S from './AiHomePage.styles'
 
 const STORE_CATEGORIES = [
@@ -206,6 +208,8 @@ function AiHomePage() {
     useState<StoreCategoryCode | null>(null)
   const [customCategory, setCustomCategory] = useState('')
   const [confirmedCustomCategory, setConfirmedCustomCategory] = useState('')
+  const [confirmedLocation, setConfirmedLocation] =
+    useState<LocationSelection | null>(null)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
@@ -225,10 +229,19 @@ function AiHomePage() {
     pendingPrompt !== null && submittedPrompt === null
   const assistantMessage = submittedPrompt ? CATEGORY_ASSISTANT_FALLBACK : null
   const followupMessage = confirmedCategoryLabel
-    ? `${confirmedCategoryLabel} 가게를 준비하고 계시는군요. 다음 질문으로 이어갈게요.`
+    ? `좋아요. ${confirmedCategoryLabel} 업종에 맞는 입지를 찾기 위해 희망 지역을 알려주세요.`
     : null
+  const locationConfirmationMessage =
+    confirmedCategoryLabel && confirmedLocation
+      ? `${confirmedLocation.displayName}에서 ${confirmedCategoryLabel} 가게를 준비하고 계시는군요. 이 지역의 유동인구와 상권 데이터를 살펴볼게요.`
+      : null
   const initialTypewriter = useTypewriter(assistantMessage, 520, 24)
   const followupTypewriter = useTypewriter(followupMessage, 360, 28)
+  const locationConfirmationTypewriter = useTypewriter(
+    locationConfirmationMessage,
+    360,
+    28,
+  )
   const categorySequence = useCategorySequence(initialTypewriter.isComplete)
 
   useEffect(() => {
@@ -289,7 +302,7 @@ function AiHomePage() {
       behavior: 'smooth',
       block: 'end',
     })
-  }, [confirmedCategory])
+  }, [confirmedCategory, confirmedLocation, followupTypewriter.isComplete])
 
   function resetConsulting() {
     setPrompt('')
@@ -299,6 +312,7 @@ function AiHomePage() {
     setConfirmedCategory(null)
     setCustomCategory('')
     setConfirmedCustomCategory('')
+    setConfirmedLocation(null)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
@@ -638,14 +652,57 @@ function AiHomePage() {
                       <S.AssistantAvatar aria-hidden="true">
                         <img src="/pingdom-favicon.png" alt="" />
                       </S.AssistantAvatar>
+                      <S.AssistantMessageContent>
+                        <S.AssistantFollowup
+                          role="status"
+                          aria-busy={followupTypewriter.isTyping}
+                        >
+                          {followupTypewriter.displayedText ? (
+                            <>
+                              {followupTypewriter.displayedText}
+                              {followupTypewriter.isTyping ? (
+                                <S.TypingCursor aria-hidden="true" />
+                              ) : null}
+                            </>
+                          ) : (
+                            <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
+                              <span />
+                              <span />
+                              <span />
+                            </S.TypingIndicator>
+                          )}
+                        </S.AssistantFollowup>
+
+                        {followupTypewriter.isComplete ? (
+                          <LocationSelectionPanel
+                            confirmedLocation={confirmedLocation}
+                            onConfirm={setConfirmedLocation}
+                          />
+                        ) : null}
+                      </S.AssistantMessageContent>
+                    </S.AssistantMessageRow>
+                  </>
+                ) : null}
+
+                {confirmedLocation ? (
+                  <>
+                    <S.UserMessageRow>
+                      <S.UserMessageBubble>
+                        {confirmedLocation.displayName}
+                      </S.UserMessageBubble>
+                    </S.UserMessageRow>
+                    <S.AssistantMessageRow>
+                      <S.AssistantAvatar aria-hidden="true">
+                        <img src="/pingdom-favicon.png" alt="" />
+                      </S.AssistantAvatar>
                       <S.AssistantFollowup
                         role="status"
-                        aria-busy={followupTypewriter.isTyping}
+                        aria-busy={locationConfirmationTypewriter.isTyping}
                       >
-                        {followupTypewriter.displayedText ? (
+                        {locationConfirmationTypewriter.displayedText ? (
                           <>
-                            {followupTypewriter.displayedText}
-                            {followupTypewriter.isTyping ? (
+                            {locationConfirmationTypewriter.displayedText}
+                            {locationConfirmationTypewriter.isTyping ? (
                               <S.TypingCursor aria-hidden="true" />
                             ) : null}
                           </>
@@ -667,9 +724,15 @@ function AiHomePage() {
               <S.ConversationComposer>
                 {renderComposer(
                   true,
-                  categorySequence.isComplete
-                    ? '먼저 가게 카테고리를 선택해 주세요'
-                    : 'AI가 답변과 선택지를 작성하고 있어요',
+                  !categorySequence.isComplete
+                    ? 'AI가 답변과 선택지를 작성하고 있어요'
+                    : !confirmedCategory
+                      ? '먼저 가게 카테고리를 선택해 주세요'
+                      : !followupTypewriter.isComplete
+                        ? 'AI가 다음 질문을 작성하고 있어요'
+                        : !confirmedLocation
+                          ? '희망 장소를 선택해 주세요'
+                          : '다음 상담 단계를 준비하고 있어요',
                 )}
               </S.ConversationComposer>
             </S.ConversationLayout>
