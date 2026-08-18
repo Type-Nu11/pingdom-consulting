@@ -1,5 +1,23 @@
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { appColors } from '../../styles/theme'
+
+const cloudDrift = keyframes`
+  0%,
+  100% {
+    transform: translate(-51%, -51%) rotate(-5deg) scale(1);
+    border-radius: 44% 56% 39% 61% / 58% 43% 57% 42%;
+  }
+
+  35% {
+    transform: translate(-45%, -56%) rotate(3deg) scale(1.08, 0.93);
+    border-radius: 52% 48% 57% 43% / 46% 58% 42% 54%;
+  }
+
+  70% {
+    transform: translate(-57%, -46%) rotate(-12deg) scale(0.92, 1.1);
+    border-radius: 39% 61% 46% 54% / 61% 39% 56% 44%;
+  }
+`
 
 export const PageShell = styled.div`
   height: 100dvh;
@@ -170,9 +188,15 @@ export const ChatMain = styled.main`
         ellipse 40% 34% at 57% 24%,
         #ff195610 0%,
         transparent 72%
-      );
+    );
     filter: blur(36px);
     pointer-events: none;
+    will-change: transform, border-radius;
+    animation: ${cloudDrift} 8s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
   }
 
   @media (max-width: 768px) {
