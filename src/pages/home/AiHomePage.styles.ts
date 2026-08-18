@@ -134,18 +134,61 @@ export const MobileBrandLogo = styled.img`
 `
 
 export const ChatMain = styled.main`
+  position: relative;
+  isolation: isolate;
   min-width: 0;
   min-height: 0;
   flex: 1;
   display: flex;
+  overflow: hidden;
   padding: 0 32px 64px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 0;
+    width: min(1040px, 96%);
+    height: min(600px, 82%);
+    transform: translate(-51%, -51%) rotate(-5deg);
+    border-radius: 44% 56% 39% 61% / 58% 43% 57% 42%;
+    background:
+      radial-gradient(
+        ellipse 62% 50% at 34% 46%,
+        #ff19561a 0%,
+        #ff19560c 48%,
+        transparent 74%
+      ),
+      radial-gradient(
+        ellipse 48% 66% at 69% 54%,
+        #ff195618 0%,
+        #ff19560a 52%,
+        transparent 76%
+      ),
+      radial-gradient(
+        ellipse 40% 34% at 57% 24%,
+        #ff195610 0%,
+        transparent 72%
+      );
+    filter: blur(36px);
+    pointer-events: none;
+  }
 
   @media (max-width: 768px) {
     padding: 0 18px 32px;
+
+    &::before {
+      width: 130%;
+      height: min(460px, 68%);
+      opacity: 0.72;
+    }
   }
 `
 
 export const EmptyState = styled.section`
+  position: relative;
+  z-index: 1;
   width: min(760px, 100%);
   display: flex;
   flex-direction: column;
