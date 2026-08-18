@@ -329,6 +329,7 @@ export default function LocationSelectionPanel({
       return
     }
 
+    setIsMapVisible(false)
     onConfirm(selectedLocation)
   }
 
