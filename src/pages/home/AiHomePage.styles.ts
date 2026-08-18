@@ -434,7 +434,7 @@ export const MessageTitle = styled.h1`
 export const ConversationLayout = styled.section`
   position: relative;
   z-index: 1;
-  width: min(800px, 100%);
+  width: 100%;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -455,8 +455,15 @@ export const ConversationMessages = styled.div`
   flex-direction: column;
   gap: 24px;
   overflow-y: auto;
-  padding: 40px 8px 28px;
-  scrollbar-width: thin;
+  padding: 40px max(8px, calc((100% - 800px) / 2 + 8px)) 28px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 
   @media (max-width: 520px) {
     gap: 20px;
@@ -607,7 +614,9 @@ export const AssistantFollowup = styled.p`
 `
 
 export const ConversationComposer = styled.div`
+  width: min(800px, 100%);
   flex-shrink: 0;
+  margin: 0 auto;
   padding: 12px 8px 0;
   background: linear-gradient(transparent, ${appColors.background} 18%);
   animation: ${composerDockEnter} 760ms cubic-bezier(0.16, 1, 0.3, 1) both;

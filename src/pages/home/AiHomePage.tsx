@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
+  type WheelEvent as ReactWheelEvent,
 } from 'react'
 import type { LocationSelection } from '../../features/location/location.types'
 import LocationSelectionPanel from './LocationSelectionPanel'
@@ -213,6 +214,7 @@ function AiHomePage() {
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
+  const conversationMessagesRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const confirmedCategoryLabel =
@@ -315,6 +317,22 @@ function AiHomePage() {
     setConfirmedLocation(null)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
+  }
+
+  function handleConversationGutterWheel(
+    event: ReactWheelEvent<HTMLElement>,
+  ) {
+    if (event.target !== event.currentTarget) {
+      return
+    }
+
+    const messages = conversationMessagesRef.current
+
+    if (!messages) {
+      return
+    }
+
+    messages.scrollTop += event.deltaY
   }
 
   function handlePromptSubmit(event: FormEvent<HTMLFormElement>) {
@@ -495,8 +513,11 @@ function AiHomePage() {
           data-transitioning={isTransitioningToConversation}
         >
           {submittedPrompt ? (
-            <S.ConversationLayout aria-live="polite">
-              <S.ConversationMessages>
+            <S.ConversationLayout
+              aria-live="polite"
+              onWheel={handleConversationGutterWheel}
+            >
+              <S.ConversationMessages ref={conversationMessagesRef}>
                 <S.UserMessageRow>
                   <S.UserMessageBubble>{submittedPrompt}</S.UserMessageBubble>
                 </S.UserMessageRow>
