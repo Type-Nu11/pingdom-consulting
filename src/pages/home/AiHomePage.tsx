@@ -9,6 +9,7 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import type { LocationSelection } from '../../features/location/location.types'
+import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
 import * as S from './AiHomePage.styles'
 
@@ -23,6 +24,8 @@ const STORE_CATEGORIES = [
   { code: 'CULTURAL_HERITAGE', label: '문화재' },
   { code: 'OTHER', label: '기타' },
 ] as const
+
+const STORE_CATEGORY_LABELS = STORE_CATEGORIES.map(({ label }) => label)
 
 const CATEGORY_ASSISTANT_FALLBACK =
   '말씀해주신 가게를 준비하고 계시는군요. 정확한 분석을 위해 아래 카테고리 중 가장 가까운 업종을 선택해 주세요.'
@@ -211,6 +214,10 @@ function AiHomePage() {
   const [confirmedCustomCategory, setConfirmedCustomCategory] = useState('')
   const [confirmedLocation, setConfirmedLocation] =
     useState<LocationSelection | null>(null)
+  const [additionalDetails, setAdditionalDetails] = useState('')
+  const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] =
+    useState('')
+  const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(false)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
@@ -231,11 +238,15 @@ function AiHomePage() {
     pendingPrompt !== null && submittedPrompt === null
   const assistantMessage = submittedPrompt ? CATEGORY_ASSISTANT_FALLBACK : null
   const followupMessage = confirmedCategoryLabel
-    ? `좋아요. ${confirmedCategoryLabel} 업종에 맞는 입지를 찾기 위해 희망 지역을 알려주세요.`
+    ? '좋아요. 선택한 업종에 맞는 입지를 찾기 위해 희망 지역을 알려주세요.'
     : null
   const locationConfirmationMessage =
     confirmedCategoryLabel && confirmedLocation
-      ? `${confirmedLocation.displayName}에서 ${confirmedCategoryLabel} 가게를 준비하고 계시는군요. 이 지역의 유동인구와 상권 데이터를 살펴볼게요.`
+      ? '좋아요. 지금까지 알려주신 정보가 맞는지 마지막으로 확인해 주세요.'
+      : null
+  const consultationReadyMessage =
+    confirmedCategoryLabel && confirmedLocation && isSummaryConfirmed
+      ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName} 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
       : null
   const initialTypewriter = useTypewriter(assistantMessage, 520, 24)
   const followupTypewriter = useTypewriter(followupMessage, 360, 28)
@@ -243,6 +254,11 @@ function AiHomePage() {
     locationConfirmationMessage,
     360,
     28,
+  )
+  const consultationReadyTypewriter = useTypewriter(
+    consultationReadyMessage,
+    320,
+    26,
   )
   const categorySequence = useCategorySequence(initialTypewriter.isComplete)
 
@@ -304,7 +320,13 @@ function AiHomePage() {
       behavior: 'smooth',
       block: 'end',
     })
-  }, [confirmedCategory, confirmedLocation, followupTypewriter.isComplete])
+  }, [
+    confirmedCategory,
+    confirmedLocation,
+    followupTypewriter.isComplete,
+    locationConfirmationTypewriter.isComplete,
+    isSummaryConfirmed,
+  ])
 
   function resetConsulting() {
     setPrompt('')
@@ -315,6 +337,9 @@ function AiHomePage() {
     setCustomCategory('')
     setConfirmedCustomCategory('')
     setConfirmedLocation(null)
+    setAdditionalDetails('')
+    setConfirmedAdditionalDetails('')
+    setIsSummaryConfirmed(false)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
@@ -361,6 +386,34 @@ function AiHomePage() {
       selectedCategory === 'OTHER' ? customCategory.trim() : '',
     )
     setConfirmedCategory(selectedCategory)
+  }
+
+  function handleLocationConfirm(location: LocationSelection) {
+    setConfirmedLocation(location)
+    setConfirmedAdditionalDetails('')
+    setIsSummaryConfirmed(false)
+  }
+
+  function handleSummaryCategoryChange(categoryLabel: string) {
+    const matchingCategory = STORE_CATEGORIES.find(
+      ({ label }) => label === categoryLabel,
+    )
+    const nextCategory = matchingCategory?.code ?? 'OTHER'
+    const nextCustomCategory = matchingCategory ? '' : categoryLabel
+
+    setSelectedCategory(nextCategory)
+    setConfirmedCategory(nextCategory)
+    setCustomCategory(nextCustomCategory)
+    setConfirmedCustomCategory(nextCustomCategory)
+  }
+
+  function handleSummaryLocationChange(location: LocationSelection) {
+    setConfirmedLocation(location)
+  }
+
+  function handleSummaryConfirm() {
+    setConfirmedAdditionalDetails(additionalDetails.trim())
+    setIsSummaryConfirmed(true)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -476,9 +529,15 @@ function AiHomePage() {
         </S.Form>
         <S.ComposerHint>
           {isLocked
-            ? categorySequence.isComplete
-              ? '카테고리를 선택하면 다음 상담 단계로 이어집니다.'
-              : 'AI가 답변과 선택지를 작성하고 있습니다.'
+            ? !categorySequence.isComplete
+              ? 'AI가 답변과 선택지를 작성하고 있습니다.'
+              : !confirmedCategory
+                ? '카테고리를 선택하면 다음 상담 단계로 이어집니다.'
+                : !confirmedLocation
+                  ? '희망 장소를 선택하면 입력 정보를 확인할 수 있습니다.'
+                  : !isSummaryConfirmed
+                    ? '입력한 정보를 확인하면 상권 분석을 준비합니다.'
+                    : '확인한 조건으로 상권 분석을 준비하고 있습니다.'
             : '핑덤의 유동인구 데이터와 AI 분석을 바탕으로 답변합니다.'}
         </S.ComposerHint>
       </S.ComposerArea>
@@ -697,7 +756,7 @@ function AiHomePage() {
                         {followupTypewriter.isComplete ? (
                           <LocationSelectionPanel
                             confirmedLocation={confirmedLocation}
-                            onConfirm={setConfirmedLocation}
+                            onConfirm={handleLocationConfirm}
                           />
                         ) : null}
                       </S.AssistantMessageContent>
@@ -705,7 +764,7 @@ function AiHomePage() {
                   </>
                 ) : null}
 
-                {confirmedLocation ? (
+                {confirmedLocation && confirmedCategoryLabel ? (
                   <>
                     <S.UserMessageRow>
                       <S.UserMessageBubble>
@@ -716,24 +775,67 @@ function AiHomePage() {
                       <S.AssistantAvatar aria-hidden="true">
                         <img src="/pingdom-favicon.png" alt="" />
                       </S.AssistantAvatar>
+                      <S.AssistantMessageContent>
+                        <S.AssistantFollowup
+                          role="status"
+                          aria-busy={locationConfirmationTypewriter.isTyping}
+                        >
+                          {locationConfirmationTypewriter.displayedText ? (
+                            <>
+                              {locationConfirmationTypewriter.displayedText}
+                              {locationConfirmationTypewriter.isTyping ? (
+                                <S.TypingCursor aria-hidden="true" />
+                              ) : null}
+                            </>
+                          ) : (
+                            <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
+                              <span />
+                              <span />
+                              <span />
+                            </S.TypingIndicator>
+                          )}
+                        </S.AssistantFollowup>
+
+                        {locationConfirmationTypewriter.isComplete ? (
+                          <ConsultationSummaryPanel
+                            categoryLabel={confirmedCategoryLabel}
+                            location={confirmedLocation}
+                            categoryOptions={STORE_CATEGORY_LABELS}
+                            additionalDetails={additionalDetails}
+                            isConfirmed={isSummaryConfirmed}
+                            onAdditionalDetailsChange={setAdditionalDetails}
+                            onCategoryChange={handleSummaryCategoryChange}
+                            onLocationChange={handleSummaryLocationChange}
+                            onConfirm={handleSummaryConfirm}
+                          />
+                        ) : null}
+                      </S.AssistantMessageContent>
+                    </S.AssistantMessageRow>
+                  </>
+                ) : null}
+
+                {isSummaryConfirmed ? (
+                  <>
+                    <S.UserMessageRow>
+                      <S.UserMessageBubble>
+                        입력한 정보가 맞아요.
+                        {confirmedAdditionalDetails
+                          ? `\n기타 요청사항: ${confirmedAdditionalDetails}`
+                          : ''}
+                      </S.UserMessageBubble>
+                    </S.UserMessageRow>
+                    <S.AssistantMessageRow>
+                      <S.AssistantAvatar aria-hidden="true">
+                        <img src="/pingdom-favicon.png" alt="" />
+                      </S.AssistantAvatar>
                       <S.AssistantFollowup
                         role="status"
-                        aria-busy={locationConfirmationTypewriter.isTyping}
+                        aria-busy={consultationReadyTypewriter.isTyping}
                       >
-                        {locationConfirmationTypewriter.displayedText ? (
-                          <>
-                            {locationConfirmationTypewriter.displayedText}
-                            {locationConfirmationTypewriter.isTyping ? (
-                              <S.TypingCursor aria-hidden="true" />
-                            ) : null}
-                          </>
-                        ) : (
-                          <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
-                            <span />
-                            <span />
-                            <span />
-                          </S.TypingIndicator>
-                        )}
+                        {consultationReadyTypewriter.displayedText}
+                        {consultationReadyTypewriter.isTyping ? (
+                          <S.TypingCursor aria-hidden="true" />
+                        ) : null}
                       </S.AssistantFollowup>
                     </S.AssistantMessageRow>
                   </>
@@ -753,7 +855,11 @@ function AiHomePage() {
                         ? 'AI가 다음 질문을 작성하고 있어요'
                         : !confirmedLocation
                           ? '희망 장소를 선택해 주세요'
-                          : '다음 상담 단계를 준비하고 있어요',
+                          : !locationConfirmationTypewriter.isComplete
+                            ? 'AI가 입력 정보를 정리하고 있어요'
+                            : !isSummaryConfirmed
+                              ? '입력한 정보를 확인해 주세요'
+                              : '상권 분석을 준비하고 있어요',
                 )}
               </S.ConversationComposer>
             </S.ConversationLayout>
