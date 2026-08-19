@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import { appColors } from '../../styles/theme'
 
 export const TargetCustomerPanel = styled.section`
+  margin-top: 20px;
   overflow: hidden;
   border-radius: 20px;
   background: ${appColors.surface};

@@ -15,6 +15,8 @@ import {
 import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
+import OperatingHoursPanel from './OperatingHoursPanel'
+import type { OperatingHours } from './operatingHours.types'
 import TargetCustomerPanel from './TargetCustomerPanel'
 import type { TargetCustomerSelection } from './targetCustomerOptions'
 import * as S from './AiHomePage.styles'
@@ -46,6 +48,12 @@ const CATEGORY_TEXT_SEQUENCE = [
 ] as const
 
 const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
+const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
+const STARTER_PROMPTS = [
+  '수원역 근처에 브런치 카페를 열고 싶어요.',
+  '직장인이 많이 찾는 점심 식당 입지를 추천해 주세요.',
+  '20대가 많이 찾는 팝업스토어 위치를 찾고 싶어요.',
+] as const
 
 type StoreCategoryCode = (typeof STORE_CATEGORIES)[number]['code']
 
@@ -223,6 +231,8 @@ function AiHomePage() {
     useState<LocationSelection | null>(null)
   const [confirmedTargetCustomer, setConfirmedTargetCustomer] =
     useState<TargetCustomerSelection | null>(null)
+  const [confirmedOperatingHours, setConfirmedOperatingHours] =
+    useState<OperatingHours | null>(null)
   const [additionalDetails, setAdditionalDetails] = useState('')
   const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] =
     useState('')
@@ -253,20 +263,42 @@ function AiHomePage() {
     confirmedCategoryLabel && confirmedLocation
       ? '좋아요. 마지막으로 이 입지에서 가장 먼저 만나고 싶은 주요 고객층을 선택해 주세요.'
       : null
+  const targetCustomerConfirmationMessage =
+    confirmedTargetCustomer
+      ? '좋아요. 주요 운영 시간대를 설정해 주세요.'
+      : null
+  const operatingHoursConfirmationMessage =
+    confirmedOperatingHours
+      ? '좋아요. 지금까지 알려주신 정보가 맞는지 확인해 주세요.'
+      : null
   const consultationReadyMessage =
-    confirmedCategoryLabel && confirmedLocation && confirmedTargetCustomer && isSummaryConfirmed
-      ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName}, ${confirmedTargetCustomer.ageGroups.join(', ')} ${confirmedTargetCustomer.nationality} 고객층 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
+    confirmedCategoryLabel && confirmedLocation && confirmedTargetCustomer && confirmedOperatingHours && isSummaryConfirmed
+      ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName}, ${confirmedTargetCustomer.ageGroups.join(', ')} ${confirmedTargetCustomer.nationality} 고객층, ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime} 운영 시간 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
       : null
   const initialTypewriter = useTypewriter(assistantMessage, 520, 24)
-  const followupTypewriter = useTypewriter(followupMessage, 360, 28)
+  const followupTypewriter = useTypewriter(
+    followupMessage,
+    ASSISTANT_RESPONSE_LOADING_DELAY,
+    28,
+  )
   const locationConfirmationTypewriter = useTypewriter(
     locationConfirmationMessage,
-    360,
+    ASSISTANT_RESPONSE_LOADING_DELAY,
+    28,
+  )
+  const targetCustomerConfirmationTypewriter = useTypewriter(
+    targetCustomerConfirmationMessage,
+    ASSISTANT_RESPONSE_LOADING_DELAY,
+    28,
+  )
+  const operatingHoursConfirmationTypewriter = useTypewriter(
+    operatingHoursConfirmationMessage,
+    ASSISTANT_RESPONSE_LOADING_DELAY,
     28,
   )
   const consultationReadyTypewriter = useTypewriter(
     consultationReadyMessage,
-    320,
+    ASSISTANT_RESPONSE_LOADING_DELAY,
     26,
   )
   const categorySequence = useCategorySequence(initialTypewriter.isComplete)
@@ -369,8 +401,11 @@ function AiHomePage() {
     confirmedCategory,
     confirmedLocation,
     confirmedTargetCustomer,
+    confirmedOperatingHours,
     followupTypewriter.isComplete,
     locationConfirmationTypewriter.isComplete,
+    targetCustomerConfirmationTypewriter.isComplete,
+    operatingHoursConfirmationTypewriter.isComplete,
     isSummaryConfirmed,
   ])
 
@@ -386,6 +421,7 @@ function AiHomePage() {
     setConfirmedCustomCategory('')
     setConfirmedLocation(null)
     setConfirmedTargetCustomer(null)
+    setConfirmedOperatingHours(null)
     setAdditionalDetails('')
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
@@ -440,18 +476,21 @@ function AiHomePage() {
   function handleLocationConfirm(location: LocationSelection) {
     setConfirmedLocation(location)
     setConfirmedTargetCustomer(null)
+    setConfirmedOperatingHours(null)
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
   }
 
   function handleTargetCustomerConfirm(customer: TargetCustomerSelection) {
     setConfirmedTargetCustomer(customer)
+    setConfirmedOperatingHours(null)
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
   }
 
   function handleTargetCustomerChange() {
     setConfirmedTargetCustomer(null)
+    setConfirmedOperatingHours(null)
     setIsSummaryConfirmed(false)
   }
 
@@ -471,12 +510,24 @@ function AiHomePage() {
   function handleSummaryLocationChange(location: LocationSelection) {
     setConfirmedLocation(location)
     setConfirmedTargetCustomer(null)
+    setConfirmedOperatingHours(null)
     setIsSummaryConfirmed(false)
   }
 
   function handleSummaryConfirm() {
     setConfirmedAdditionalDetails(additionalDetails.trim())
     setIsSummaryConfirmed(true)
+  }
+
+  function handleOperatingHoursConfirm(operatingHours: OperatingHours) {
+    setConfirmedOperatingHours(operatingHours)
+    setConfirmedAdditionalDetails('')
+    setIsSummaryConfirmed(false)
+  }
+
+  function handleOperatingHoursChange() {
+    setConfirmedOperatingHours(null)
+    setIsSummaryConfirmed(false)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -591,21 +642,23 @@ function AiHomePage() {
             <ArrowUpIcon />
           </S.SubmitButton>
         </S.Form>
-        <S.ComposerHint>
-          {isLocked
-            ? !categorySequence.isComplete
+        {isLocked ? (
+          <S.ComposerHint>
+            {!categorySequence.isComplete
               ? 'AI가 답변과 선택지를 작성하고 있습니다.'
               : !confirmedCategory
                 ? '카테고리를 선택하면 다음 상담 단계로 이어집니다.'
-                  : !confirmedLocation
-                    ? '희망 장소를 선택하면 입력 정보를 확인할 수 있습니다.'
+                : !confirmedLocation
+                  ? '희망 장소를 선택하면 입력 정보를 확인할 수 있습니다.'
                   : !confirmedTargetCustomer
                     ? '주요 고객층을 선택하면 입력 정보를 확인할 수 있습니다.'
-                  : !isSummaryConfirmed
-                    ? '입력한 정보를 확인하면 상권 분석을 준비합니다.'
-                    : '확인한 조건으로 상권 분석을 준비하고 있습니다.'
-            : '핑덤의 유동인구 데이터와 AI 분석을 바탕으로 답변합니다.'}
-        </S.ComposerHint>
+                    : !confirmedOperatingHours
+                      ? '주요 운영 시간을 선택하면 입력 정보를 확인할 수 있습니다.'
+                      : !isSummaryConfirmed
+                        ? '입력한 정보를 확인하면 상권 분석을 준비합니다.'
+                        : '확인한 조건으로 상권 분석을 준비하고 있습니다.'}
+          </S.ComposerHint>
+        ) : null}
       </S.ComposerArea>
     )
   }
@@ -886,23 +939,87 @@ function AiHomePage() {
                         <img src="/pingdom-favicon.png" alt="" />
                       </S.AssistantAvatar>
                       <S.AssistantMessageContent>
-                        <S.AssistantFollowup>
-                          좋아요. 지금까지 알려주신 정보가 맞는지 확인해 주세요.
+                        <S.AssistantFollowup
+                          role="status"
+                          aria-busy={targetCustomerConfirmationTypewriter.isTyping}
+                        >
+                          {targetCustomerConfirmationTypewriter.displayedText ? (
+                            <>
+                              {targetCustomerConfirmationTypewriter.displayedText}
+                              {targetCustomerConfirmationTypewriter.isTyping ? (
+                                <S.TypingCursor aria-hidden="true" />
+                              ) : null}
+                            </>
+                          ) : (
+                            <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
+                              <span />
+                              <span />
+                              <span />
+                            </S.TypingIndicator>
+                          )}
                         </S.AssistantFollowup>
 
-                        <ConsultationSummaryPanel
-                          categoryLabel={confirmedCategoryLabel}
-                          location={confirmedLocation}
-                          targetCustomer={confirmedTargetCustomer}
-                          categoryOptions={STORE_CATEGORY_LABELS}
-                          additionalDetails={additionalDetails}
-                          isConfirmed={isSummaryConfirmed}
-                          onAdditionalDetailsChange={setAdditionalDetails}
-                          onCategoryChange={handleSummaryCategoryChange}
-                          onLocationChange={handleSummaryLocationChange}
-                          onTargetCustomerChange={handleTargetCustomerChange}
-                          onConfirm={handleSummaryConfirm}
-                        />
+                        {targetCustomerConfirmationTypewriter.isComplete ? (
+                          <OperatingHoursPanel
+                            confirmedOperatingHours={confirmedOperatingHours}
+                            onConfirm={handleOperatingHoursConfirm}
+                          />
+                        ) : null}
+                      </S.AssistantMessageContent>
+                    </S.AssistantMessageRow>
+                  </>
+                ) : null}
+
+                {confirmedOperatingHours && confirmedTargetCustomer && confirmedLocation && confirmedCategoryLabel ? (
+                  <>
+                    <S.UserMessageRow>
+                      <S.UserMessageBubble>
+                        {confirmedOperatingHours.startTime} ~{' '}
+                        {confirmedOperatingHours.endTime}
+                      </S.UserMessageBubble>
+                    </S.UserMessageRow>
+                    <S.AssistantMessageRow>
+                      <S.AssistantAvatar aria-hidden="true">
+                        <img src="/pingdom-favicon.png" alt="" />
+                      </S.AssistantAvatar>
+                      <S.AssistantMessageContent>
+                        <S.AssistantFollowup
+                          role="status"
+                          aria-busy={operatingHoursConfirmationTypewriter.isTyping}
+                        >
+                          {operatingHoursConfirmationTypewriter.displayedText ? (
+                            <>
+                              {operatingHoursConfirmationTypewriter.displayedText}
+                              {operatingHoursConfirmationTypewriter.isTyping ? (
+                                <S.TypingCursor aria-hidden="true" />
+                              ) : null}
+                            </>
+                          ) : (
+                            <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
+                              <span />
+                              <span />
+                              <span />
+                            </S.TypingIndicator>
+                          )}
+                        </S.AssistantFollowup>
+
+                        {operatingHoursConfirmationTypewriter.isComplete ? (
+                          <ConsultationSummaryPanel
+                            categoryLabel={confirmedCategoryLabel}
+                            location={confirmedLocation}
+                            targetCustomer={confirmedTargetCustomer}
+                            operatingHours={confirmedOperatingHours}
+                            categoryOptions={STORE_CATEGORY_LABELS}
+                            additionalDetails={additionalDetails}
+                            isConfirmed={isSummaryConfirmed}
+                            onAdditionalDetailsChange={setAdditionalDetails}
+                            onCategoryChange={handleSummaryCategoryChange}
+                            onLocationChange={handleSummaryLocationChange}
+                            onTargetCustomerChange={handleTargetCustomerChange}
+                            onOperatingHoursChange={handleOperatingHoursChange}
+                            onConfirm={handleSummaryConfirm}
+                          />
+                        ) : null}
                       </S.AssistantMessageContent>
                     </S.AssistantMessageRow>
                   </>
@@ -926,9 +1043,20 @@ function AiHomePage() {
                         role="status"
                         aria-busy={consultationReadyTypewriter.isTyping}
                       >
-                        {consultationReadyTypewriter.displayedText}
-                        {consultationReadyTypewriter.isTyping ? (
-                          <S.TypingCursor aria-hidden="true" />
+                        {consultationReadyTypewriter.displayedText ? (
+                          <>
+                            {consultationReadyTypewriter.displayedText}
+                            {consultationReadyTypewriter.isTyping ? (
+                              <S.TypingCursor aria-hidden="true" />
+                            ) : null}
+                          </>
+                        ) : null}
+                        {!consultationReadyTypewriter.displayedText ? (
+                          <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
+                            <span />
+                            <span />
+                            <span />
+                          </S.TypingIndicator>
                         ) : null}
                       </S.AssistantFollowup>
                     </S.AssistantMessageRow>
@@ -951,8 +1079,14 @@ function AiHomePage() {
                           ? '희망 장소를 선택해 주세요'
                           : !locationConfirmationTypewriter.isComplete
                             ? 'AI가 다음 질문을 작성하고 있어요'
-                            : !confirmedTargetCustomer
-                              ? '주요 고객층을 선택해 주세요'
+                          : !confirmedTargetCustomer
+                            ? '주요 고객층을 선택해 주세요'
+                            : !targetCustomerConfirmationTypewriter.isComplete
+                              ? 'AI가 다음 질문을 작성하고 있어요'
+                            : !confirmedOperatingHours
+                              ? '주요 운영 시간을 선택해 주세요'
+                              : !operatingHoursConfirmationTypewriter.isComplete
+                                ? 'AI가 다음 질문을 작성하고 있어요'
                             : !isSummaryConfirmed
                               ? '입력한 정보를 확인해 주세요'
                               : '상권 분석을 준비하고 있어요',
