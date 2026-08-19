@@ -16,7 +16,7 @@ export const SummaryPanel = styled.section`
   width: 100%;
   margin-top: 16px;
   overflow: hidden;
-  border: 1px solid ${appColors.border};
+  border: 0;
   border-radius: 20px;
   background: ${appColors.surface};
   box-shadow: 0 12px 34px #0000000a;
@@ -136,15 +136,15 @@ export const ItemCopy = styled.div`
 `
 
 export const EditButton = styled.button`
-  min-height: 34px;
+  min-height: 38px;
   flex-shrink: 0;
-  padding: 0 12px;
+  padding: 0 15px;
   border: 1px solid ${appColors.border};
-  border-radius: 999px;
+  border-radius: 11px;
   background: ${appColors.surface};
   color: ${appColors.text};
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
 
   &:hover:not(:disabled) {
     border-color: ${appColors.primarySoft};
