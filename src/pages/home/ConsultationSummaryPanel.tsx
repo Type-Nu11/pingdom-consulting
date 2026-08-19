@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { LocationSelection } from '../../features/location/location.types'
+import type { OperatingHours } from './operatingHours.types'
+import type { TargetCustomerSelection } from './targetCustomerOptions'
 import LocationSelectionPanel from './LocationSelectionPanel'
 import * as S from './ConsultationSummaryPanel.styles'
 
@@ -8,24 +10,32 @@ const ADDITIONAL_DETAILS_MAX_LENGTH = 500
 type ConsultationSummaryPanelProps = {
   categoryLabel: string
   location: LocationSelection
+  targetCustomer: TargetCustomerSelection
+  operatingHours: OperatingHours
   categoryOptions: readonly string[]
   additionalDetails: string
   isConfirmed: boolean
   onAdditionalDetailsChange: (value: string) => void
   onCategoryChange: (categoryLabel: string) => void
   onLocationChange: (location: LocationSelection) => void
+  onTargetCustomerChange: () => void
+  onOperatingHoursChange: () => void
   onConfirm: () => void
 }
 
 export default function ConsultationSummaryPanel({
   categoryLabel,
   location,
+  targetCustomer,
+  operatingHours,
   categoryOptions,
   additionalDetails,
   isConfirmed,
   onAdditionalDetailsChange,
   onCategoryChange,
   onLocationChange,
+  onTargetCustomerChange,
+  onOperatingHoursChange,
   onConfirm,
 }: ConsultationSummaryPanelProps) {
   const [editingField, setEditingField] = useState<
@@ -67,7 +77,7 @@ export default function ConsultationSummaryPanel({
     <S.SummaryPanel data-confirmed={isConfirmed}>
       <S.SummaryHeader>
         <S.SummaryTitle>상담 정보 확인</S.SummaryTitle>
-        <S.StepBadge>3단계</S.StepBadge>
+        <S.StepBadge>5단계</S.StepBadge>
       </S.SummaryHeader>
 
       <S.SummaryForm onSubmit={handleSubmit}>
@@ -149,6 +159,43 @@ export default function ConsultationSummaryPanel({
             <S.EditButton
               type="button"
               onClick={() => setEditingField('location')}
+              disabled={isConfirmed}
+            >
+              수정
+            </S.EditButton>
+          </S.SummaryItem>
+
+          <S.SummaryItem>
+            <S.ItemCopy>
+              <span>주요 고객층 연령대</span>
+              <strong>{targetCustomer.ageGroups.join(', ')}</strong>
+            </S.ItemCopy>
+          </S.SummaryItem>
+
+          <S.SummaryItem>
+            <S.ItemCopy>
+              <span>주요 고객층 국적</span>
+              <strong>{targetCustomer.nationality}</strong>
+            </S.ItemCopy>
+            <S.EditButton
+              type="button"
+              onClick={onTargetCustomerChange}
+              disabled={isConfirmed}
+            >
+              수정
+            </S.EditButton>
+          </S.SummaryItem>
+
+          <S.SummaryItem>
+            <S.ItemCopy>
+              <span>주요 운영 시간대</span>
+              <strong>
+                {operatingHours.startTime} ~ {operatingHours.endTime}
+              </strong>
+            </S.ItemCopy>
+            <S.EditButton
+              type="button"
+              onClick={onOperatingHoursChange}
               disabled={isConfirmed}
             >
               수정
