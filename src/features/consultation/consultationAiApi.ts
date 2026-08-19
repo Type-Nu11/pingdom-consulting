@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { apiClient } from '../api/apiClient'
 
 export const CONSULTATION_PROMPT_MAX_LENGTH = 300
 
@@ -11,12 +11,11 @@ export async function requestConsultationIntro(
   message: string,
   signal: AbortSignal,
 ) {
-  const response = await axios.post<ConsultationIntroResponse>(
-    '/api/consultations/intro',
+  const response = await apiClient.post<ConsultationIntroResponse>(
+    '/consultations/intro',
     { message },
     {
       signal,
-      timeout: 6_500,
     },
   )
   const generatedMessage = response.data.message?.trim()
