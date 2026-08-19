@@ -189,8 +189,8 @@ export const Sidebar = styled.aside`
   display: flex;
   flex-direction: column;
   padding: 16px 12px 12px;
-  border-right: 1px solid ${appColors.borderSoft};
-  background: #f7f7f8;
+  border-right: 1px solid #e9e9eb;
+  background: ${appColors.surface};
 
   @media (max-width: 768px) {
     display: none;
@@ -395,11 +395,7 @@ export const EmptyState = styled.section`
   align-items: center;
   margin: auto;
   text-align: center;
-  transform: translateY(-5vh);
-
-  @media (max-width: 768px) {
-    transform: translateY(-2vh);
-  }
+  transform: translateY(5vh);
 
   @media (max-height: 640px) {
     transform: none;
@@ -937,6 +933,81 @@ export const MessageText = styled.p`
   }
 `
 
+export const StarterPromptSection = styled.section`
+  width: min(760px, 100%);
+  margin-top: 14px;
+  padding: 6px;
+  border: 1px solid #ffffff;
+  border-radius: 18px;
+  background: #ffffff9c;
+  box-shadow: 0 12px 28px #00000008;
+  text-align: left;
+
+  @media (max-height: 640px) {
+    margin-top: 10px;
+  }
+`
+
+export const StarterPromptList = styled.div`
+  display: grid;
+  gap: 2px;
+`
+
+export const StarterPromptButton = styled.button`
+  max-width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: ${appColors.muted};
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.55;
+  text-align: left;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+
+  &:hover {
+    background: ${appColors.primaryTint};
+    color: ${appColors.text};
+  }
+
+  &:active {
+    transform: scale(0.985);
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 2px;
+  }
+`
+
+export const StarterPromptIcon = styled.span`
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: ${appColors.softText};
+
+  svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+`
+
 export const ComposerArea = styled.div`
   width: 100%;
   margin-top: 30px;
@@ -1131,7 +1202,7 @@ export const PromptInput = styled.textarea`
   max-height: 140px;
   overflow-y: hidden;
   resize: none;
-  padding: 12px 4px 8px;
+  padding: 13px 4px 7px;
   border: 0;
   outline: 0;
   background: transparent;
