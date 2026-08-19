@@ -15,6 +15,8 @@ import {
 import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
+import TargetCustomerPanel from './TargetCustomerPanel'
+import type { TargetCustomerSelection } from './targetCustomerOptions'
 import * as S from './AiHomePage.styles'
 
 const STORE_CATEGORIES = [
@@ -219,6 +221,8 @@ function AiHomePage() {
   const [confirmedCustomCategory, setConfirmedCustomCategory] = useState('')
   const [confirmedLocation, setConfirmedLocation] =
     useState<LocationSelection | null>(null)
+  const [confirmedTargetCustomer, setConfirmedTargetCustomer] =
+    useState<TargetCustomerSelection | null>(null)
   const [additionalDetails, setAdditionalDetails] = useState('')
   const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] =
     useState('')
@@ -247,11 +251,11 @@ function AiHomePage() {
     : null
   const locationConfirmationMessage =
     confirmedCategoryLabel && confirmedLocation
-      ? '좋아요. 지금까지 알려주신 정보가 맞는지 마지막으로 확인해 주세요.'
+      ? '좋아요. 마지막으로 이 입지에서 가장 먼저 만나고 싶은 주요 고객층을 선택해 주세요.'
       : null
   const consultationReadyMessage =
-    confirmedCategoryLabel && confirmedLocation && isSummaryConfirmed
-      ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName} 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
+    confirmedCategoryLabel && confirmedLocation && confirmedTargetCustomer && isSummaryConfirmed
+      ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName}, ${confirmedTargetCustomer.ageGroups.join(', ')} ${confirmedTargetCustomer.nationality} 고객층 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
       : null
   const initialTypewriter = useTypewriter(assistantMessage, 520, 24)
   const followupTypewriter = useTypewriter(followupMessage, 360, 28)
@@ -364,6 +368,7 @@ function AiHomePage() {
   }, [
     confirmedCategory,
     confirmedLocation,
+    confirmedTargetCustomer,
     followupTypewriter.isComplete,
     locationConfirmationTypewriter.isComplete,
     isSummaryConfirmed,
@@ -380,6 +385,7 @@ function AiHomePage() {
     setCustomCategory('')
     setConfirmedCustomCategory('')
     setConfirmedLocation(null)
+    setConfirmedTargetCustomer(null)
     setAdditionalDetails('')
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
@@ -433,7 +439,19 @@ function AiHomePage() {
 
   function handleLocationConfirm(location: LocationSelection) {
     setConfirmedLocation(location)
+    setConfirmedTargetCustomer(null)
     setConfirmedAdditionalDetails('')
+    setIsSummaryConfirmed(false)
+  }
+
+  function handleTargetCustomerConfirm(customer: TargetCustomerSelection) {
+    setConfirmedTargetCustomer(customer)
+    setConfirmedAdditionalDetails('')
+    setIsSummaryConfirmed(false)
+  }
+
+  function handleTargetCustomerChange() {
+    setConfirmedTargetCustomer(null)
     setIsSummaryConfirmed(false)
   }
 
@@ -452,6 +470,8 @@ function AiHomePage() {
 
   function handleSummaryLocationChange(location: LocationSelection) {
     setConfirmedLocation(location)
+    setConfirmedTargetCustomer(null)
+    setIsSummaryConfirmed(false)
   }
 
   function handleSummaryConfirm() {
@@ -577,8 +597,10 @@ function AiHomePage() {
               ? 'AI가 답변과 선택지를 작성하고 있습니다.'
               : !confirmedCategory
                 ? '카테고리를 선택하면 다음 상담 단계로 이어집니다.'
-                : !confirmedLocation
-                  ? '희망 장소를 선택하면 입력 정보를 확인할 수 있습니다.'
+                  : !confirmedLocation
+                    ? '희망 장소를 선택하면 입력 정보를 확인할 수 있습니다.'
+                  : !confirmedTargetCustomer
+                    ? '주요 고객층을 선택하면 입력 정보를 확인할 수 있습니다.'
                   : !isSummaryConfirmed
                     ? '입력한 정보를 확인하면 상권 분석을 준비합니다.'
                     : '확인한 조건으로 상권 분석을 준비하고 있습니다.'
@@ -841,18 +863,46 @@ function AiHomePage() {
                         </S.AssistantFollowup>
 
                         {locationConfirmationTypewriter.isComplete ? (
-                          <ConsultationSummaryPanel
-                            categoryLabel={confirmedCategoryLabel}
-                            location={confirmedLocation}
-                            categoryOptions={STORE_CATEGORY_LABELS}
-                            additionalDetails={additionalDetails}
-                            isConfirmed={isSummaryConfirmed}
-                            onAdditionalDetailsChange={setAdditionalDetails}
-                            onCategoryChange={handleSummaryCategoryChange}
-                            onLocationChange={handleSummaryLocationChange}
-                            onConfirm={handleSummaryConfirm}
+                          <TargetCustomerPanel
+                            confirmedCustomer={confirmedTargetCustomer}
+                            onConfirm={handleTargetCustomerConfirm}
                           />
                         ) : null}
+                      </S.AssistantMessageContent>
+                    </S.AssistantMessageRow>
+                  </>
+                ) : null}
+
+                {confirmedTargetCustomer && confirmedLocation && confirmedCategoryLabel ? (
+                  <>
+                    <S.UserMessageRow>
+                      <S.UserMessageBubble>
+                        {confirmedTargetCustomer.ageGroups.join(', ')} ·{' '}
+                        {confirmedTargetCustomer.nationality}
+                      </S.UserMessageBubble>
+                    </S.UserMessageRow>
+                    <S.AssistantMessageRow>
+                      <S.AssistantAvatar aria-hidden="true">
+                        <img src="/pingdom-favicon.png" alt="" />
+                      </S.AssistantAvatar>
+                      <S.AssistantMessageContent>
+                        <S.AssistantFollowup>
+                          좋아요. 지금까지 알려주신 정보가 맞는지 확인해 주세요.
+                        </S.AssistantFollowup>
+
+                        <ConsultationSummaryPanel
+                          categoryLabel={confirmedCategoryLabel}
+                          location={confirmedLocation}
+                          targetCustomer={confirmedTargetCustomer}
+                          categoryOptions={STORE_CATEGORY_LABELS}
+                          additionalDetails={additionalDetails}
+                          isConfirmed={isSummaryConfirmed}
+                          onAdditionalDetailsChange={setAdditionalDetails}
+                          onCategoryChange={handleSummaryCategoryChange}
+                          onLocationChange={handleSummaryLocationChange}
+                          onTargetCustomerChange={handleTargetCustomerChange}
+                          onConfirm={handleSummaryConfirm}
+                        />
                       </S.AssistantMessageContent>
                     </S.AssistantMessageRow>
                   </>
@@ -900,7 +950,9 @@ function AiHomePage() {
                         : !confirmedLocation
                           ? '희망 장소를 선택해 주세요'
                           : !locationConfirmationTypewriter.isComplete
-                            ? 'AI가 입력 정보를 정리하고 있어요'
+                            ? 'AI가 다음 질문을 작성하고 있어요'
+                            : !confirmedTargetCustomer
+                              ? '주요 고객층을 선택해 주세요'
                             : !isSummaryConfirmed
                               ? '입력한 정보를 확인해 주세요'
                               : '상권 분석을 준비하고 있어요',
