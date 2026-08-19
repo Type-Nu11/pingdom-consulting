@@ -641,7 +641,7 @@ export const CategoryPanel = styled.div`
   position: relative;
   width: 100%;
   overflow: hidden;
-  border: 1px solid ${appColors.border};
+  border: 0;
   border-radius: 20px;
   background: ${appColors.surface};
   box-shadow: 0 12px 34px #0000000a;
@@ -649,10 +649,6 @@ export const CategoryPanel = styled.div`
 
   &[data-animated='true'] {
     animation: ${categoryPanelEnter} 620ms steps(10, end) both;
-  }
-
-  &[data-streaming='true'] {
-    border-color: #ff195640;
   }
 
   @media (prefers-reduced-motion: reduce) {

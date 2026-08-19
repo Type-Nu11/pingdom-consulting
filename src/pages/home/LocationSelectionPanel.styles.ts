@@ -27,7 +27,7 @@ export const LocationPanel = styled.section`
   width: 100%;
   margin-top: 16px;
   overflow: hidden;
-  border: 1px solid ${appColors.border};
+  border: 0;
   border-radius: 20px;
   background: ${appColors.surface};
   box-shadow: 0 12px 34px #0000000a;

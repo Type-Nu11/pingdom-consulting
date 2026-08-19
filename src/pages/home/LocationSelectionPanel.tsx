@@ -26,6 +26,7 @@ type RequestState = 'idle' | 'loading' | 'success' | 'empty' | 'error'
 
 type LocationSelectionPanelProps = {
   confirmedLocation: LocationSelection | null
+  initialLocation?: LocationSelection | null
   onConfirm: (location: LocationSelection) => void
 }
 
@@ -61,12 +62,14 @@ function createSearchSelection(place: KakaoPlace): LocationSelection {
 
 export default function LocationSelectionPanel({
   confirmedLocation,
+  initialLocation = null,
   onConfirm,
 }: LocationSelectionPanelProps) {
-  const [query, setQuery] = useState('')
+  const startingLocation = initialLocation ?? confirmedLocation
+  const [query, setQuery] = useState(startingLocation?.displayName ?? '')
   const [searchResults, setSearchResults] = useState<KakaoPlace[]>([])
   const [selectedLocation, setSelectedLocation] =
-    useState<LocationSelection | null>(null)
+    useState<LocationSelection | null>(startingLocation)
   const [isMapVisible, setIsMapVisible] = useState(false)
   const [searchState, setSearchState] = useState<RequestState>('idle')
   const [mapState, setMapState] = useState<RequestState>('idle')
@@ -80,6 +83,7 @@ export default function LocationSelectionPanel({
   const selectedLocationRef = useRef<LocationSelection | null>(null)
   const isConfirmedRef = useRef(false)
   const isConfirmed = confirmedLocation !== null
+  const displayedLocation = confirmedLocation ?? selectedLocation
 
   useEffect(() => {
     isConfirmedRef.current = isConfirmed
@@ -360,7 +364,7 @@ export default function LocationSelectionPanel({
         <S.LocationSearchArea>
           <S.LocationSearchForm onSubmit={handleSearchSubmit} role="search">
             <S.LocationSearchInput
-              value={query}
+              value={confirmedLocation?.displayName ?? query}
               onChange={(event) => {
                 setQuery(event.currentTarget.value)
                 updateSelectedLocation(null)
@@ -398,7 +402,7 @@ export default function LocationSelectionPanel({
           {searchResults.length > 0 ? (
             <S.LocationResults aria-label="장소 검색 결과">
               {searchResults.map((place) => {
-                const isSelected = selectedLocation?.id === place.id
+                const isSelected = displayedLocation?.id === place.id
 
                 return (
                   <S.LocationResultButton
@@ -442,16 +446,16 @@ export default function LocationSelectionPanel({
           </S.MapView>
         ) : null}
 
-        {selectedLocation ? (
+        {displayedLocation ? (
           <S.SelectedLocation aria-live="polite">
             <S.SelectedLocationHeader>
               <span>선택한 장소</span>
-              <strong>{selectedLocation.displayName}</strong>
+              <strong>{displayedLocation.displayName}</strong>
             </S.SelectedLocationHeader>
-            <p>{selectedLocation.roadAddress || selectedLocation.address}</p>
+            <p>{displayedLocation.roadAddress || displayedLocation.address}</p>
             <small>
-              위도 {selectedLocation.latitude.toFixed(6)} · 경도{' '}
-              {selectedLocation.longitude.toFixed(6)}
+              위도 {displayedLocation.latitude.toFixed(6)} · 경도{' '}
+              {displayedLocation.longitude.toFixed(6)}
             </small>
           </S.SelectedLocation>
         ) : null}
