@@ -189,8 +189,8 @@ export const Sidebar = styled.aside`
   display: flex;
   flex-direction: column;
   padding: 16px 12px 12px;
-  border-right: 1px solid ${appColors.borderSoft};
-  background: #f7f7f8;
+  border-right: 1px solid #e9e9eb;
+  background: ${appColors.surface};
 
   @media (max-width: 768px) {
     display: none;
@@ -253,7 +253,18 @@ export const NewChatButton = styled.button`
 export const SidebarContent = styled.div`
   min-height: 0;
   flex: 1;
-  padding: 28px 10px;
+  padding: 20px 10px 28px;
+`
+
+export const PinnedSection = styled.section`
+  margin: 20px 10px 0;
+`
+
+export const PinnedLabel = styled.p`
+  margin: 0;
+  color: ${appColors.softText};
+  font-size: 12px;
+  font-weight: 500;
 `
 
 export const SidebarLabel = styled.p`
@@ -268,6 +279,234 @@ export const EmptyHistory = styled.p`
   color: ${appColors.muted};
   font-size: 13px;
   line-height: 1.55;
+`
+
+export const HistoryList = styled.div`
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+`
+
+export const HistoryItem = styled.div`
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: ${appColors.text};
+  transition: background 160ms ease;
+
+  &:hover {
+    background: #ececee;
+  }
+
+  &:hover > div,
+  &:focus-within > div {
+    opacity: 1;
+    pointer-events: auto;
+  }
+`
+
+export const HistorySelectButton = styled.button`
+  height: 40px;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: -2px;
+  }
+`
+
+export const HistoryTitle = styled.strong`
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+
+export const HistoryActions = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+`
+
+export const HistoryMenuToggle = styled.button`
+  width: 20px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 1px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: ${appColors.softText};
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 0;
+  line-height: 1;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: #dedee2;
+    color: ${appColors.text};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 1px;
+  }
+`
+
+export const HistoryMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 4;
+  min-width: 124px;
+  display: grid;
+  padding: 5px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 22px #1b1b241f;
+`
+
+export const HistoryMenuItem = styled.button`
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: ${appColors.text};
+  font-size: 12px;
+  text-align: left;
+
+  &:hover {
+    background: #f1f1f3;
+  }
+
+  &[data-danger='true'] {
+    color: #d6334a;
+  }
+`
+
+export const HistoryRenameForm = styled.form`
+  height: 40px;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0;
+`
+
+export const HistoryRenameInput = styled.input`
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: ${appColors.text};
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: inherit;
+  line-height: 1.4;
+
+  &:focus {
+    box-shadow: none;
+  }
+`
+
+export const DeleteDialogBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #15151d42;
+`
+
+export const DeleteDialog = styled.section`
+  width: min(360px, 100%);
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 20px 52px #14142036;
+`
+
+export const DeleteDialogTitle = styled.h2`
+  margin: 0;
+  color: ${appColors.strongText};
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+`
+
+export const DeleteDialogDescription = styled.p`
+  margin: 10px 0 0;
+  color: ${appColors.softText};
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+`
+
+export const DeleteDialogActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+`
+
+export const DeleteDialogButton = styled.button`
+  min-height: 36px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 8px;
+  background: #efeff1;
+  color: ${appColors.text};
+  font-size: 13px;
+  font-weight: 500;
+
+  &:hover {
+    background: #e4e4e7;
+  }
+
+  &[data-danger='true'] {
+    background: #ef3553;
+    color: #fff;
+  }
+
+  &[data-danger='true']:hover {
+    background: #dd2544;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 2px;
+  }
 `
 
 export const Workspace = styled.div`
@@ -395,11 +634,7 @@ export const EmptyState = styled.section`
   align-items: center;
   margin: auto;
   text-align: center;
-  transform: translateY(-5vh);
-
-  @media (max-width: 768px) {
-    transform: translateY(-2vh);
-  }
+  transform: translateY(5vh);
 
   @media (max-height: 640px) {
     transform: none;
@@ -937,6 +1172,81 @@ export const MessageText = styled.p`
   }
 `
 
+export const StarterPromptSection = styled.section`
+  width: min(760px, 100%);
+  margin-top: 14px;
+  padding: 6px;
+  border: 1px solid #ffffff;
+  border-radius: 18px;
+  background: #ffffff9c;
+  box-shadow: 0 12px 28px #00000008;
+  text-align: left;
+
+  @media (max-height: 640px) {
+    margin-top: 10px;
+  }
+`
+
+export const StarterPromptList = styled.div`
+  display: grid;
+  gap: 2px;
+`
+
+export const StarterPromptButton = styled.button`
+  max-width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: ${appColors.muted};
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.55;
+  text-align: left;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+
+  &:hover {
+    background: ${appColors.primaryTint};
+    color: ${appColors.text};
+  }
+
+  &:active {
+    transform: scale(0.985);
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 2px;
+  }
+`
+
+export const StarterPromptIcon = styled.span`
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: ${appColors.softText};
+
+  svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+`
+
 export const ComposerArea = styled.div`
   width: 100%;
   margin-top: 30px;
@@ -1131,7 +1441,7 @@ export const PromptInput = styled.textarea`
   max-height: 140px;
   overflow-y: hidden;
   resize: none;
-  padding: 12px 4px 8px;
+  padding: 13px 4px 7px;
   border: 0;
   outline: 0;
   background: transparent;
