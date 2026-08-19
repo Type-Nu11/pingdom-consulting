@@ -112,7 +112,7 @@ VITE_KAKAO_MAP_APP_KEY=your_kakao_javascript_key
 
 | Variable | Description |
 |---|---|
-| `VITE_API_BASE_URL` | Vite 개발 프록시가 요청을 전달할 기본 API 서버 주소 |
+| `VITE_API_BASE_URL` | 개발에서는 Vite 프록시의 기본 대상, 운영 빌드에서는 Axios API 기본 주소 |
 | `VITE_PROXY_TARGET` | 기본 API 주소보다 우선 적용할 선택적 프록시 대상 |
 | `VITE_KAKAO_MAP_APP_KEY` | Kakao Maps JavaScript SDK 실행에 사용하는 키 |
 
