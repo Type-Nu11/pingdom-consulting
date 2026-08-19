@@ -253,7 +253,18 @@ export const NewChatButton = styled.button`
 export const SidebarContent = styled.div`
   min-height: 0;
   flex: 1;
-  padding: 28px 10px;
+  padding: 20px 10px 28px;
+`
+
+export const PinnedSection = styled.section`
+  margin: 20px 10px 0;
+`
+
+export const PinnedLabel = styled.p`
+  margin: 0;
+  color: ${appColors.softText};
+  font-size: 12px;
+  font-weight: 500;
 `
 
 export const SidebarLabel = styled.p`
@@ -268,6 +279,234 @@ export const EmptyHistory = styled.p`
   color: ${appColors.muted};
   font-size: 13px;
   line-height: 1.55;
+`
+
+export const HistoryList = styled.div`
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+`
+
+export const HistoryItem = styled.div`
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: ${appColors.text};
+  transition: background 160ms ease;
+
+  &:hover {
+    background: #ececee;
+  }
+
+  &:hover > div,
+  &:focus-within > div {
+    opacity: 1;
+    pointer-events: auto;
+  }
+`
+
+export const HistorySelectButton = styled.button`
+  height: 40px;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: -2px;
+  }
+`
+
+export const HistoryTitle = styled.strong`
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+
+export const HistoryActions = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+`
+
+export const HistoryMenuToggle = styled.button`
+  width: 20px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 1px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: ${appColors.softText};
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 0;
+  line-height: 1;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: #dedee2;
+    color: ${appColors.text};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 1px;
+  }
+`
+
+export const HistoryMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 4;
+  min-width: 124px;
+  display: grid;
+  padding: 5px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 22px #1b1b241f;
+`
+
+export const HistoryMenuItem = styled.button`
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: ${appColors.text};
+  font-size: 12px;
+  text-align: left;
+
+  &:hover {
+    background: #f1f1f3;
+  }
+
+  &[data-danger='true'] {
+    color: #d6334a;
+  }
+`
+
+export const HistoryRenameForm = styled.form`
+  height: 40px;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0;
+`
+
+export const HistoryRenameInput = styled.input`
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: ${appColors.text};
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: inherit;
+  line-height: 1.4;
+
+  &:focus {
+    box-shadow: none;
+  }
+`
+
+export const DeleteDialogBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #15151d42;
+`
+
+export const DeleteDialog = styled.section`
+  width: min(360px, 100%);
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 20px 52px #14142036;
+`
+
+export const DeleteDialogTitle = styled.h2`
+  margin: 0;
+  color: ${appColors.strongText};
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+`
+
+export const DeleteDialogDescription = styled.p`
+  margin: 10px 0 0;
+  color: ${appColors.softText};
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+`
+
+export const DeleteDialogActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+`
+
+export const DeleteDialogButton = styled.button`
+  min-height: 36px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 8px;
+  background: #efeff1;
+  color: ${appColors.text};
+  font-size: 13px;
+  font-weight: 500;
+
+  &:hover {
+    background: #e4e4e7;
+  }
+
+  &[data-danger='true'] {
+    background: #ef3553;
+    color: #fff;
+  }
+
+  &[data-danger='true']:hover {
+    background: #dd2544;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 2px;
+  }
 `
 
 export const Workspace = styled.div`

@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import {
@@ -49,6 +50,8 @@ const CATEGORY_TEXT_SEQUENCE = [
 
 const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
 const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
+const CONSULTATION_HISTORY_STORAGE_KEY = 'pingdom-ai-consultation-history-v1'
+const SESSION_TITLE_PREVIEW_LENGTH = 11
 const STARTER_PROMPTS = [
   '수원역 근처에 브런치 카페를 열고 싶어요.',
   '직장인이 많이 찾는 점심 식당 입지를 추천해 주세요.',
@@ -57,10 +60,116 @@ const STARTER_PROMPTS = [
 
 type StoreCategoryCode = (typeof STORE_CATEGORIES)[number]['code']
 
+type ConsultationSession = {
+  id: string
+  title: string
+  isPinned: boolean
+  createdAt: number
+  updatedAt: number
+  pendingPrompt: string | null
+  submittedPrompt: string | null
+  assistantMessage: string | null
+  selectedCategory: StoreCategoryCode | null
+  confirmedCategory: StoreCategoryCode | null
+  customCategory: string
+  confirmedCustomCategory: string
+  confirmedLocation: LocationSelection | null
+  confirmedTargetCustomer: TargetCustomerSelection | null
+  confirmedOperatingHours: OperatingHours | null
+  additionalDetails: string
+  confirmedAdditionalDetails: string
+  isSummaryConfirmed: boolean
+}
+
+type ConsultationHistory = {
+  activeSessionId: string | null
+  sessions: ConsultationSession[]
+}
+
+function createSessionId() {
+  return crypto.randomUUID()
+}
+
+function createSessionTitle(prompt: string) {
+  const normalizedPrompt = prompt.replace(/\s+/g, ' ').trim()
+
+  return normalizedPrompt
+}
+
+function formatSessionPreview(title: string) {
+  const characters = Array.from(title)
+
+  return characters.length > SESSION_TITLE_PREVIEW_LENGTH
+    ? `${characters.slice(0, SESSION_TITLE_PREVIEW_LENGTH).join('')}...`
+    : title
+}
+
+function sortSessions(sessions: ConsultationSession[]) {
+  return [...sessions].sort(
+    (left, right) =>
+      Number(Boolean(right.isPinned)) - Number(Boolean(left.isPinned)) ||
+      right.updatedAt - left.updatedAt,
+  )
+}
+
+function readConsultationHistory(): ConsultationHistory {
+  try {
+    const storedHistory = window.localStorage.getItem(
+      CONSULTATION_HISTORY_STORAGE_KEY,
+    )
+
+    if (!storedHistory) {
+      return { activeSessionId: null, sessions: [] }
+    }
+
+    const parsedHistory: unknown = JSON.parse(storedHistory)
+
+    if (
+      !parsedHistory ||
+      typeof parsedHistory !== 'object' ||
+      !Array.isArray((parsedHistory as ConsultationHistory).sessions)
+    ) {
+      return { activeSessionId: null, sessions: [] }
+    }
+
+    const sessions = (parsedHistory as ConsultationHistory).sessions.filter(
+      (session): session is ConsultationSession =>
+        typeof session?.id === 'string' &&
+        typeof session.title === 'string' &&
+        typeof session.createdAt === 'number' &&
+        typeof session.updatedAt === 'number' &&
+        (typeof session.submittedPrompt === 'string' ||
+          session.submittedPrompt === null),
+    )
+
+    return {
+      activeSessionId:
+        typeof (parsedHistory as ConsultationHistory).activeSessionId === 'string'
+          ? (parsedHistory as ConsultationHistory).activeSessionId
+          : null,
+      sessions,
+    }
+  } catch {
+    return { activeSessionId: null, sessions: [] }
+  }
+}
+
+function writeConsultationHistory(history: ConsultationHistory) {
+  try {
+    window.localStorage.setItem(
+      CONSULTATION_HISTORY_STORAGE_KEY,
+      JSON.stringify(history),
+    )
+  } catch {
+    // 브라우저 저장소를 사용할 수 없는 환경에서는 현재 대화만 유지한다.
+  }
+}
+
 function useTypewriter(
   fullText: string | null,
   initialDelay: number,
   characterDelay: number,
+  isInstant = false,
 ) {
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -71,12 +180,14 @@ function useTypewriter(
       '(prefers-reduced-motion: reduce)',
     ).matches
     const resetId = window.setTimeout(() => {
-      setDisplayedText(fullText && shouldReduceMotion ? fullText : '')
-      setIsTyping(Boolean(fullText) && !shouldReduceMotion)
-      setIsComplete(Boolean(fullText) && shouldReduceMotion)
+      setDisplayedText(
+        fullText && (shouldReduceMotion || isInstant) ? fullText : '',
+      )
+      setIsTyping(Boolean(fullText) && !shouldReduceMotion && !isInstant)
+      setIsComplete(Boolean(fullText) && (shouldReduceMotion || isInstant))
     }, 0)
 
-    if (!fullText || shouldReduceMotion) {
+    if (!fullText || shouldReduceMotion || isInstant) {
       return () => window.clearTimeout(resetId)
     }
 
@@ -102,12 +213,12 @@ function useTypewriter(
       window.clearTimeout(delayId)
       window.clearInterval(intervalId)
     }
-  }, [characterDelay, fullText, initialDelay])
+  }, [characterDelay, fullText, initialDelay, isInstant])
 
   return { displayedText, isComplete, isTyping }
 }
 
-function useCategorySequence(isActive: boolean) {
+function useCategorySequence(isActive: boolean, isInstant = false) {
   const [displayedItems, setDisplayedItems] = useState<string[]>(() =>
     CATEGORY_TEXT_SEQUENCE.map(() => ''),
   )
@@ -120,15 +231,15 @@ function useCategorySequence(isActive: boolean) {
     ).matches
     const resetId = window.setTimeout(() => {
       setDisplayedItems(
-        isActive && shouldReduceMotion
+        isActive && (shouldReduceMotion || isInstant)
           ? [...CATEGORY_TEXT_SEQUENCE]
           : CATEGORY_TEXT_SEQUENCE.map(() => ''),
       )
-      setIsComplete(isActive && shouldReduceMotion)
-      setActiveItemIndex(isActive && !shouldReduceMotion ? 0 : -1)
+      setIsComplete(isActive && (shouldReduceMotion || isInstant))
+      setActiveItemIndex(isActive && !shouldReduceMotion && !isInstant ? 0 : -1)
     }, 0)
 
-    if (!isActive || shouldReduceMotion) {
+    if (!isActive || shouldReduceMotion || isInstant) {
       return () => window.clearTimeout(resetId)
     }
 
@@ -174,7 +285,7 @@ function useCategorySequence(isActive: boolean) {
       window.clearTimeout(delayId)
       window.clearInterval(intervalId)
     }
-  }, [isActive])
+  }, [isActive, isInstant])
 
   return { activeItemIndex, displayedItems, isComplete }
 }
@@ -242,28 +353,76 @@ function ImageIcon() {
 }
 
 function AiHomePage() {
+  const [storedHistory] = useState(readConsultationHistory)
+  const storedActiveSession =
+    storedHistory.sessions.find(
+      (session) => session.id === storedHistory.activeSessionId,
+    ) ?? storedHistory.sessions[0]
+  const [sessions, setSessions] = useState<ConsultationSession[]>(
+    () => storedHistory.sessions,
+  )
+  const sessionsRef = useRef<ConsultationSession[]>(storedHistory.sessions)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(
+    () => storedActiveSession?.id ?? null,
+  )
+  const [isRestoredSession, setIsRestoredSession] = useState(
+    () => Boolean(storedActiveSession),
+  )
+  const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(
+    null,
+  )
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(
+    null,
+  )
+  const [editingSessionTitle, setEditingSessionTitle] = useState('')
+  const [sessionPendingDeletion, setSessionPendingDeletion] =
+    useState<ConsultationSession | null>(null)
   const [prompt, setPrompt] = useState('')
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
-  const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(null)
-  const [assistantMessage, setAssistantMessage] = useState<string | null>(null)
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(
+    () => storedActiveSession?.pendingPrompt ?? null,
+  )
+  const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(
+    () => storedActiveSession?.submittedPrompt ?? null,
+  )
+  const [assistantMessage, setAssistantMessage] = useState<string | null>(
+    () => storedActiveSession?.assistantMessage ?? null,
+  )
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false)
   const [isPromptExpanded, setIsPromptExpanded] = useState(false)
   const [selectedCategory, setSelectedCategory] =
-    useState<StoreCategoryCode | null>(null)
+    useState<StoreCategoryCode | null>(
+      () => storedActiveSession?.selectedCategory ?? null,
+    )
   const [confirmedCategory, setConfirmedCategory] =
-    useState<StoreCategoryCode | null>(null)
-  const [customCategory, setCustomCategory] = useState('')
-  const [confirmedCustomCategory, setConfirmedCustomCategory] = useState('')
+    useState<StoreCategoryCode | null>(
+      () => storedActiveSession?.confirmedCategory ?? null,
+    )
+  const [customCategory, setCustomCategory] = useState(
+    () => storedActiveSession?.customCategory ?? '',
+  )
+  const [confirmedCustomCategory, setConfirmedCustomCategory] = useState(
+    () => storedActiveSession?.confirmedCustomCategory ?? '',
+  )
   const [confirmedLocation, setConfirmedLocation] =
-    useState<LocationSelection | null>(null)
+    useState<LocationSelection | null>(
+      () => storedActiveSession?.confirmedLocation ?? null,
+    )
   const [confirmedTargetCustomer, setConfirmedTargetCustomer] =
-    useState<TargetCustomerSelection | null>(null)
+    useState<TargetCustomerSelection | null>(
+      () => storedActiveSession?.confirmedTargetCustomer ?? null,
+    )
   const [confirmedOperatingHours, setConfirmedOperatingHours] =
-    useState<OperatingHours | null>(null)
-  const [additionalDetails, setAdditionalDetails] = useState('')
+    useState<OperatingHours | null>(
+      () => storedActiveSession?.confirmedOperatingHours ?? null,
+    )
+  const [additionalDetails, setAdditionalDetails] = useState(
+    () => storedActiveSession?.additionalDetails ?? '',
+  )
   const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] =
-    useState('')
-  const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(false)
+    useState(() => storedActiveSession?.confirmedAdditionalDetails ?? '')
+  const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(
+    () => storedActiveSession?.isSummaryConfirmed ?? false,
+  )
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
@@ -302,33 +461,113 @@ function AiHomePage() {
     confirmedCategoryLabel && confirmedLocation && confirmedTargetCustomer && confirmedOperatingHours && isSummaryConfirmed
       ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName}, ${confirmedTargetCustomer.ageGroups.join(', ')} ${confirmedTargetCustomer.nationality} 고객층, ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime} 운영 시간 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
       : null
-  const initialTypewriter = useTypewriter(assistantMessage, 520, 24)
+  const initialTypewriter = useTypewriter(
+    assistantMessage,
+    520,
+    24,
+    isRestoredSession,
+  )
   const followupTypewriter = useTypewriter(
     followupMessage,
     ASSISTANT_RESPONSE_LOADING_DELAY,
     28,
+    isRestoredSession,
   )
   const locationConfirmationTypewriter = useTypewriter(
     locationConfirmationMessage,
     ASSISTANT_RESPONSE_LOADING_DELAY,
     28,
+    isRestoredSession,
   )
   const targetCustomerConfirmationTypewriter = useTypewriter(
     targetCustomerConfirmationMessage,
     ASSISTANT_RESPONSE_LOADING_DELAY,
     28,
+    isRestoredSession,
   )
   const operatingHoursConfirmationTypewriter = useTypewriter(
     operatingHoursConfirmationMessage,
     ASSISTANT_RESPONSE_LOADING_DELAY,
     28,
+    isRestoredSession,
   )
   const consultationReadyTypewriter = useTypewriter(
     consultationReadyMessage,
     ASSISTANT_RESPONSE_LOADING_DELAY,
     26,
+    isRestoredSession,
   )
-  const categorySequence = useCategorySequence(initialTypewriter.isComplete)
+  const categorySequence = useCategorySequence(
+    initialTypewriter.isComplete,
+    isRestoredSession,
+  )
+  const pinnedSessions = sessions.filter((session) => session.isPinned)
+  const unpinnedSessions = sessions.filter((session) => !session.isPinned)
+
+  useEffect(() => {
+    if (!activeSessionId) {
+      writeConsultationHistory({
+        activeSessionId: null,
+        sessions: sessionsRef.current,
+      })
+      return
+    }
+
+    const activeSession: ConsultationSession = {
+      id: activeSessionId,
+      title:
+        sessionsRef.current.find((session) => session.id === activeSessionId)
+          ?.title ?? createSessionTitle(submittedPrompt ?? pendingPrompt ?? '새 상담'),
+      isPinned:
+        sessionsRef.current.find((session) => session.id === activeSessionId)
+          ?.isPinned ?? false,
+      createdAt:
+        sessionsRef.current.find((session) => session.id === activeSessionId)
+          ?.createdAt ??
+        Date.now(),
+      updatedAt: Date.now(),
+      pendingPrompt,
+      submittedPrompt,
+      assistantMessage,
+      selectedCategory,
+      confirmedCategory,
+      customCategory,
+      confirmedCustomCategory,
+      confirmedLocation,
+      confirmedTargetCustomer,
+      confirmedOperatingHours,
+      additionalDetails,
+      confirmedAdditionalDetails,
+      isSummaryConfirmed,
+    }
+
+    setSessions((currentSessions) => {
+      const nextSessions = sortSessions([
+        activeSession,
+        ...currentSessions.filter((session) => session.id !== activeSessionId),
+      ])
+
+      sessionsRef.current = nextSessions
+      writeConsultationHistory({ activeSessionId, sessions: nextSessions })
+
+      return nextSessions
+    })
+  }, [
+    activeSessionId,
+    additionalDetails,
+    assistantMessage,
+    confirmedAdditionalDetails,
+    confirmedCategory,
+    confirmedCustomCategory,
+    confirmedLocation,
+    confirmedOperatingHours,
+    confirmedTargetCustomer,
+    customCategory,
+    isSummaryConfirmed,
+    pendingPrompt,
+    selectedCategory,
+    submittedPrompt,
+  ])
 
   useEffect(() => {
     if (!pendingPrompt) {
@@ -344,7 +583,7 @@ function AiHomePage() {
   }, [pendingPrompt])
 
   useEffect(() => {
-    if (!submittedPrompt) {
+    if (!submittedPrompt || assistantMessage) {
       return
     }
 
@@ -377,7 +616,7 @@ function AiHomePage() {
         introRequestRef.current = null
       }
     }
-  }, [submittedPrompt])
+  }, [assistantMessage, submittedPrompt])
 
   useLayoutEffect(() => {
     const input = promptInputRef.current
@@ -438,6 +677,8 @@ function AiHomePage() {
 
   function resetConsulting() {
     introRequestRef.current?.abort()
+    setActiveSessionId(null)
+    setIsRestoredSession(false)
     setPrompt('')
     setPendingPrompt(null)
     setSubmittedPrompt(null)
@@ -454,6 +695,137 @@ function AiHomePage() {
     setIsSummaryConfirmed(false)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
+  }
+
+  function restoreSession(session: ConsultationSession) {
+    introRequestRef.current?.abort()
+    setIsRestoredSession(true)
+    setPrompt('')
+    setPendingPrompt(session.pendingPrompt)
+    setSubmittedPrompt(session.submittedPrompt)
+    setAssistantMessage(session.assistantMessage)
+    setSelectedCategory(session.selectedCategory)
+    setConfirmedCategory(session.confirmedCategory)
+    setCustomCategory(session.customCategory)
+    setConfirmedCustomCategory(session.confirmedCustomCategory)
+    setConfirmedLocation(session.confirmedLocation)
+    setConfirmedTargetCustomer(session.confirmedTargetCustomer)
+    setConfirmedOperatingHours(session.confirmedOperatingHours)
+    setAdditionalDetails(session.additionalDetails)
+    setConfirmedAdditionalDetails(session.confirmedAdditionalDetails)
+    setIsSummaryConfirmed(session.isSummaryConfirmed)
+    setIsAttachmentMenuOpen(false)
+    setIsPromptExpanded(false)
+  }
+
+  function handleSessionSelect(session: ConsultationSession) {
+    if (session.id === activeSessionId) {
+      return
+    }
+
+    restoreSession(session)
+    setActiveSessionId(session.id)
+    setOpenSessionMenuId(null)
+  }
+
+  function saveSessions(
+    nextSessions: ConsultationSession[],
+    nextActiveSessionId = activeSessionId,
+  ) {
+    const sortedSessions = sortSessions(nextSessions)
+
+    sessionsRef.current = sortedSessions
+    setSessions(sortedSessions)
+    writeConsultationHistory({
+      activeSessionId: nextActiveSessionId,
+      sessions: sortedSessions,
+    })
+  }
+
+  function handleSessionMenuToggle(
+    event: ReactMouseEvent<HTMLButtonElement>,
+    sessionId: string,
+  ) {
+    event.stopPropagation()
+    setOpenSessionMenuId((currentId) =>
+      currentId === sessionId ? null : sessionId,
+    )
+  }
+
+  function handleSessionRenameStart(
+    event: ReactMouseEvent<HTMLButtonElement>,
+    session: ConsultationSession,
+  ) {
+    event.stopPropagation()
+    setEditingSessionId(session.id)
+    setEditingSessionTitle(session.title)
+    setOpenSessionMenuId(null)
+  }
+
+  function handleSessionRenameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const nextTitle = editingSessionTitle.trim()
+
+    if (!editingSessionId || !nextTitle) {
+      return
+    }
+
+    saveSessions(
+      sessionsRef.current.map((session) =>
+        session.id === editingSessionId
+          ? { ...session, title: nextTitle }
+          : session,
+      ),
+    )
+    setEditingSessionId(null)
+    setEditingSessionTitle('')
+  }
+
+  function handleSessionPin(
+    event: ReactMouseEvent<HTMLButtonElement>,
+    sessionId: string,
+  ) {
+    event.stopPropagation()
+    saveSessions(
+      sessionsRef.current.map((session) =>
+        session.id === sessionId
+          ? { ...session, isPinned: !session.isPinned }
+          : session,
+      ),
+    )
+    setOpenSessionMenuId(null)
+  }
+
+  function handleSessionDelete(
+    event: ReactMouseEvent<HTMLButtonElement>,
+    sessionId: string,
+  ) {
+    event.stopPropagation()
+
+    setSessionPendingDeletion(
+      sessionsRef.current.find((session) => session.id === sessionId) ?? null,
+    )
+    setOpenSessionMenuId(null)
+  }
+
+  function handleSessionDeleteConfirm() {
+    if (!sessionPendingDeletion) {
+      return
+    }
+
+    const isActiveSession = activeSessionId === sessionPendingDeletion.id
+    saveSessions(
+      sessionsRef.current.filter(
+        (session) => session.id !== sessionPendingDeletion.id,
+      ),
+      isActiveSession ? null : activeSessionId,
+    )
+    setSessionPendingDeletion(null)
+
+    if (isActiveSession) {
+      resetConsulting()
+    }
   }
 
   function handleConversationGutterWheel(
@@ -481,6 +853,8 @@ function AiHomePage() {
       return
     }
 
+    setActiveSessionId(createSessionId())
+    setIsRestoredSession(false)
     setPendingPrompt(trimmedPrompt)
     setPrompt('')
     setIsAttachmentMenuOpen(false)
@@ -701,6 +1075,81 @@ function AiHomePage() {
     )
   }
 
+  function renderSessionItems(sessionItems: ConsultationSession[]) {
+    return sessionItems.map((session) => (
+      <S.HistoryItem key={session.id} data-active={session.id === activeSessionId}>
+        {editingSessionId === session.id ? (
+          <S.HistoryRenameForm onSubmit={handleSessionRenameSubmit}>
+            <S.HistoryRenameInput
+              value={editingSessionTitle}
+              onChange={(event) =>
+                setEditingSessionTitle(event.currentTarget.value)
+              }
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setEditingSessionId(null)
+                  setEditingSessionTitle('')
+                }
+              }}
+              maxLength={60}
+              autoFocus
+              aria-label="세션 이름 변경"
+            />
+          </S.HistoryRenameForm>
+        ) : (
+          <S.HistorySelectButton
+            type="button"
+            aria-current={session.id === activeSessionId ? 'page' : undefined}
+            onClick={() => handleSessionSelect(session)}
+          >
+            <S.HistoryTitle>{formatSessionPreview(session.title)}</S.HistoryTitle>
+          </S.HistorySelectButton>
+        )}
+
+        {editingSessionId !== session.id ? (
+          <S.HistoryActions>
+            <S.HistoryMenuToggle
+              type="button"
+              aria-label={`${session.title} 메뉴`}
+              aria-haspopup="menu"
+              aria-expanded={openSessionMenuId === session.id}
+              onClick={(event) => handleSessionMenuToggle(event, session.id)}
+            >
+              ⋮
+            </S.HistoryMenuToggle>
+
+            {openSessionMenuId === session.id ? (
+              <S.HistoryMenu role="menu">
+                <S.HistoryMenuItem
+                  type="button"
+                  role="menuitem"
+                  onClick={(event) => handleSessionRenameStart(event, session)}
+                >
+                  이름 변경
+                </S.HistoryMenuItem>
+                <S.HistoryMenuItem
+                  type="button"
+                  role="menuitem"
+                  onClick={(event) => handleSessionPin(event, session.id)}
+                >
+                  {session.isPinned ? '고정 해제' : '고정하기'}
+                </S.HistoryMenuItem>
+                <S.HistoryMenuItem
+                  type="button"
+                  role="menuitem"
+                  data-danger="true"
+                  onClick={(event) => handleSessionDelete(event, session.id)}
+                >
+                  삭제
+                </S.HistoryMenuItem>
+              </S.HistoryMenu>
+            ) : null}
+          </S.HistoryActions>
+        ) : null}
+      </S.HistoryItem>
+    ))
+  }
+
   return (
     <S.PageShell>
       <S.Sidebar>
@@ -713,9 +1162,24 @@ function AiHomePage() {
           새 상담
         </S.NewChatButton>
 
+        {pinnedSessions.length > 0 ? (
+          <S.PinnedSection>
+            <S.PinnedLabel>고정됨</S.PinnedLabel>
+            <S.HistoryList aria-label="고정된 채팅 목록">
+              {renderSessionItems(pinnedSessions)}
+            </S.HistoryList>
+          </S.PinnedSection>
+        ) : null}
+
         <S.SidebarContent>
-          <S.SidebarLabel>상담</S.SidebarLabel>
-          <S.EmptyHistory>아직 저장된 상담이 없습니다.</S.EmptyHistory>
+          <S.SidebarLabel>채팅</S.SidebarLabel>
+          {sessions.length === 0 ? (
+            <S.EmptyHistory>아직 저장된 채팅이 없습니다.</S.EmptyHistory>
+          ) : unpinnedSessions.length > 0 ? (
+            <S.HistoryList aria-label="저장된 상담 목록">
+              {renderSessionItems(unpinnedSessions)}
+            </S.HistoryList>
+          ) : null}
         </S.SidebarContent>
       </S.Sidebar>
 
@@ -1166,6 +1630,47 @@ function AiHomePage() {
           )}
         </S.ChatMain>
       </S.Workspace>
+
+      {sessionPendingDeletion ? (
+        <S.DeleteDialogBackdrop
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setSessionPendingDeletion(null)
+            }
+          }}
+        >
+          <S.DeleteDialog
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-session-title"
+            aria-describedby="delete-session-description"
+          >
+            <S.DeleteDialogTitle id="delete-session-title">
+              채팅을 삭제할까요?
+            </S.DeleteDialogTitle>
+            <S.DeleteDialogDescription id="delete-session-description">
+              “{sessionPendingDeletion.title}” 대화와 저장된 정보가 삭제됩니다.
+            </S.DeleteDialogDescription>
+            <S.DeleteDialogActions>
+              <S.DeleteDialogButton
+                type="button"
+                onClick={() => setSessionPendingDeletion(null)}
+                autoFocus
+              >
+                취소
+              </S.DeleteDialogButton>
+              <S.DeleteDialogButton
+                type="button"
+                data-danger="true"
+                onClick={handleSessionDeleteConfirm}
+              >
+                삭제
+              </S.DeleteDialogButton>
+            </S.DeleteDialogActions>
+          </S.DeleteDialog>
+        </S.DeleteDialogBackdrop>
+      ) : null}
     </S.PageShell>
   )
 }
