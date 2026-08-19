@@ -116,7 +116,7 @@ export const OptionButton = styled.button`
   min-height: 38px;
   padding: 0 12px;
   border: 1px solid ${appColors.border};
-  border-radius: 999px;
+  border-radius: 12px;
   background: ${appColors.surface};
   color: ${appColors.text};
   font-size: 13px;
