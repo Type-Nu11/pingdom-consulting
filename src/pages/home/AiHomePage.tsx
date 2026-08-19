@@ -187,6 +187,33 @@ function ArrowUpIcon() {
   )
 }
 
+function StarterPromptIcon({ index }: { index: number }) {
+  if (index === 0) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z" />
+        <circle cx="12" cy="10" r="2" />
+      </svg>
+    )
+  }
+
+  if (index === 1) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 10h16v9H4zM3 10l2-5h14l2 5M8 14h3" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </svg>
+  )
+}
+
 function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -545,6 +572,17 @@ function AiHomePage() {
     setIsPromptExpanded(
       nextPrompt.length > 0 && (isPromptExpanded || input.scrollHeight > 44),
     )
+  }
+
+  function handleStarterPromptSelect(starterPrompt: string) {
+    if (isCollectingCategory || isTransitioningToConversation) {
+      return
+    }
+
+    setPrompt(starterPrompt)
+    setIsPromptExpanded(false)
+
+    requestAnimationFrame(() => promptInputRef.current?.focus())
   }
 
   function handleCategorySelect(category: StoreCategoryCode) {
@@ -1108,6 +1146,22 @@ function AiHomePage() {
                 '상담 대화로 이동하고 있어요',
                 isTransitioningToConversation,
               )}
+              <S.StarterPromptSection aria-label="상담 시작 추천 질문">
+                <S.StarterPromptList>
+                  {STARTER_PROMPTS.map((starterPrompt) => (
+                    <S.StarterPromptButton
+                      key={starterPrompt}
+                      type="button"
+                      onClick={() => handleStarterPromptSelect(starterPrompt)}
+                    >
+                      <S.StarterPromptIcon>
+                        <StarterPromptIcon index={STARTER_PROMPTS.indexOf(starterPrompt)} />
+                      </S.StarterPromptIcon>
+                      <span>{starterPrompt}</span>
+                    </S.StarterPromptButton>
+                  ))}
+                </S.StarterPromptList>
+              </S.StarterPromptSection>
             </S.EmptyState>
           )}
         </S.ChatMain>
