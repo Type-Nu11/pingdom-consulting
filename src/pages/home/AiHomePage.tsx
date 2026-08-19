@@ -8,6 +8,10 @@ import {
   type KeyboardEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
+import {
+  CONSULTATION_PROMPT_MAX_LENGTH,
+  requestConsultationIntro,
+} from '../../features/consultation/consultationAiApi'
 import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
@@ -204,6 +208,7 @@ function AiHomePage() {
   const [prompt, setPrompt] = useState('')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
   const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(null)
+  const [assistantMessage, setAssistantMessage] = useState<string | null>(null)
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false)
   const [isPromptExpanded, setIsPromptExpanded] = useState(false)
   const [selectedCategory, setSelectedCategory] =
@@ -223,6 +228,7 @@ function AiHomePage() {
   const promptLengthRef = useRef(0)
   const conversationMessagesRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const introRequestRef = useRef<AbortController | null>(null)
 
   const confirmedCategoryLabel =
     confirmedCategory === 'OTHER'
@@ -236,7 +242,6 @@ function AiHomePage() {
   const isCollectingCategory = submittedPrompt !== null
   const isTransitioningToConversation =
     pendingPrompt !== null && submittedPrompt === null
-  const assistantMessage = submittedPrompt ? CATEGORY_ASSISTANT_FALLBACK : null
   const followupMessage = confirmedCategoryLabel
     ? '좋아요. 선택한 업종에 맞는 입지를 찾기 위해 희망 지역을 알려주세요.'
     : null
@@ -274,6 +279,42 @@ function AiHomePage() {
 
     return () => window.clearTimeout(transitionId)
   }, [pendingPrompt])
+
+  useEffect(() => {
+    if (!submittedPrompt) {
+      return
+    }
+
+    const promptToSend = submittedPrompt
+    const controller = new AbortController()
+    introRequestRef.current = controller
+
+    async function loadAssistantMessage() {
+      try {
+        const generatedMessage = await requestConsultationIntro(
+          promptToSend,
+          controller.signal,
+        )
+
+        if (!controller.signal.aborted) {
+          setAssistantMessage(generatedMessage)
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setAssistantMessage(CATEGORY_ASSISTANT_FALLBACK)
+        }
+      }
+    }
+
+    void loadAssistantMessage()
+
+    return () => {
+      controller.abort()
+      if (introRequestRef.current === controller) {
+        introRequestRef.current = null
+      }
+    }
+  }, [submittedPrompt])
 
   useLayoutEffect(() => {
     const input = promptInputRef.current
@@ -329,9 +370,11 @@ function AiHomePage() {
   ])
 
   function resetConsulting() {
+    introRequestRef.current?.abort()
     setPrompt('')
     setPendingPrompt(null)
     setSubmittedPrompt(null)
+    setAssistantMessage(null)
     setSelectedCategory(null)
     setConfirmedCategory(null)
     setCustomCategory('')
@@ -517,6 +560,7 @@ function AiHomePage() {
                 ? lockedPlaceholder ?? '먼저 가게 카테고리를 선택해 주세요'
                 : '궁금한 상권이나 입지를 물어보세요'
             }
+            maxLength={CONSULTATION_PROMPT_MAX_LENGTH}
             aria-label="AI 질문 입력"
           />
           <S.SubmitButton
