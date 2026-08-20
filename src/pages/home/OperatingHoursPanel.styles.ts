@@ -65,6 +65,50 @@ export const OperatingHoursHelp = styled.p`
   line-height: 1.6;
 `
 
+export const OperatingDaysField = styled.section`
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+`
+
+export const OperatingDaysLabel = styled.strong`
+  color: ${appColors.strongText};
+  font-size: 13px;
+  font-weight: 600;
+`
+
+export const OperatingDaysOptions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`
+
+export const OperatingDayOption = styled.button`
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid ${appColors.border};
+  border-radius: 999px;
+  background: ${appColors.surface};
+  color: ${appColors.text};
+  font-size: 13px;
+  font-weight: 500;
+
+  &[data-selected='true'] {
+    border-color: ${appColors.primary};
+    background: ${appColors.primary};
+    color: ${appColors.primaryText};
+  }
+
+  &:hover:not(:disabled) {
+    border-color: ${appColors.primarySoft};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 2px;
+  }
+`
+
 export const TimeFieldGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);

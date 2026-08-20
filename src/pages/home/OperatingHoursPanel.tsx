@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import type { OperatingHours } from './operatingHours.types'
+import {
+  OPERATING_DAYS,
+  type OperatingDays,
+  type OperatingHours,
+} from './operatingHours.types'
 import { OPERATING_TIME_OPTIONS } from './operatingHoursOptions'
 import * as S from './OperatingHoursPanel.styles'
 
@@ -18,6 +22,9 @@ export default function OperatingHoursPanel({
   const [endTime, setEndTime] = useState(
     confirmedOperatingHours?.endTime ?? '',
   )
+  const [operatingDays, setOperatingDays] = useState<OperatingDays>(
+    confirmedOperatingHours?.operatingDays ?? '평일',
+  )
   const [activeTimeField, setActiveTimeField] = useState<'start' | 'end' | null>(
     null,
   )
@@ -33,7 +40,7 @@ export default function OperatingHoursPanel({
       return
     }
 
-    onConfirm({ startTime, endTime })
+    onConfirm({ operatingDays, startTime, endTime })
   }
 
   function selectTime(time: string) {
@@ -61,8 +68,26 @@ export default function OperatingHoursPanel({
           언제부터 언제까지 운영할 계획인가요?
         </S.OperatingHoursQuestion>
         <S.OperatingHoursHelp>
-          일반적으로 운영할 시작 시간과 종료 시간을 선택해 주세요.
+          일반적으로 운영할 요일과 시작·종료 시간을 선택해 주세요.
         </S.OperatingHoursHelp>
+
+        <S.OperatingDaysField>
+          <S.OperatingDaysLabel>운영 요일</S.OperatingDaysLabel>
+          <S.OperatingDaysOptions aria-label="운영 요일 선택">
+            {OPERATING_DAYS.map((days) => (
+              <S.OperatingDayOption
+                key={days}
+                type="button"
+                data-selected={operatingDays === days}
+                aria-pressed={operatingDays === days}
+                onClick={() => setOperatingDays(days)}
+                disabled={isConfirmed}
+              >
+                {days}
+              </S.OperatingDayOption>
+            ))}
+          </S.OperatingDaysOptions>
+        </S.OperatingDaysField>
 
         <S.TimeFieldGrid>
           <S.TimeFieldButton
