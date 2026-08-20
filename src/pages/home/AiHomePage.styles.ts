@@ -19,29 +19,31 @@ const cloudDrift = keyframes`
   }
 `
 
-const conversationEnter = keyframes`
+const userMessageEnter = keyframes`
   from {
     opacity: 0;
-    transform: translateY(24px) scale(0.985);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 `
 
-const userMessageEnter = keyframes`
-  0% {
-    opacity: 0;
-    transform: translateY(46px) scale(0.9);
+const floatingPromptToUserMessage = keyframes`
+  from {
+    top: var(--prompt-start-top);
+    right: var(--prompt-start-right);
+    border-radius: 30px;
+    background: ${appColors.surface};
+    box-shadow: 0 8px 28px #00000012;
   }
-  65% {
-    opacity: 1;
-    transform: translateY(-5px) scale(1.025);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  to {
+    top: var(--prompt-end-top);
+    right: var(--prompt-end-right);
+    border-radius: 18px 18px 4px 18px;
+    background: #f1f1f3;
+    box-shadow: none;
   }
 `
 
@@ -68,32 +70,6 @@ const composerDockEnter = keyframes`
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-`
-
-const composerTravelToDock = keyframes`
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  35% {
-    opacity: 1;
-    transform: translateY(70px) scale(0.99);
-  }
-  100% {
-    opacity: 0.42;
-    transform: translateY(clamp(180px, 29vh, 300px)) scale(0.94);
-  }
-`
-
-const introCopyExit = keyframes`
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-54px) scale(0.94);
   }
 `
 
@@ -636,6 +612,14 @@ export const EmptyState = styled.section`
   text-align: center;
   transform: translateY(5vh);
 
+  > h1,
+  > p,
+  > section {
+    transition:
+      opacity 420ms ease,
+      transform 420ms ease;
+  }
+
   @media (max-height: 640px) {
     transform: none;
   }
@@ -645,14 +629,17 @@ export const EmptyState = styled.section`
   }
 
   &[data-leaving='true'] > h1,
-  &[data-leaving='true'] > p {
-    animation: ${introCopyExit} 520ms cubic-bezier(0.7, 0, 0.84, 0) both;
+  &[data-leaving='true'] > p,
+  &[data-leaving='true'] > section {
+    opacity: 0;
+    transform: translateY(-16px);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &[data-leaving='true'] > h1,
-    &[data-leaving='true'] > p {
-      animation: none;
+    > h1,
+    > p,
+    > section {
+      transition: none;
     }
   }
 `
@@ -676,11 +663,6 @@ export const ConversationLayout = styled.section`
   flex: none;
   flex-direction: column;
   margin: 0 auto;
-  animation: ${conversationEnter} 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
 `
 
 export const ConversationMessages = styled.div`
@@ -711,6 +693,10 @@ export const UserMessageRow = styled.div`
   justify-content: flex-end;
   padding-left: 56px;
   animation: ${userMessageEnter} 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &[data-initial-prompt-row='true'] {
+    animation: none;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -1305,19 +1291,68 @@ export const ComposerArea = styled.div`
 
   &[data-transitioning='true'] {
     position: relative;
-    z-index: 3;
-    animation: ${composerTravelToDock} 720ms cubic-bezier(0.7, 0, 0.84, 0)
-      both;
+    z-index: 2;
   }
 
   @media (max-height: 640px) {
     margin-top: 18px;
   }
+`
+
+export const TransitionComposerPlaceholder = styled.div`
+  width: 100%;
+  min-height: 58px;
+`
+
+export const FloatingPromptBubble = styled.div`
+  --prompt-start-top: calc(50% + 24px);
+  --prompt-start-right: max(0px, calc((100% - 760px) / 2));
+  --prompt-end-top: 40px;
+  --prompt-end-right: max(8px, calc((100% - 800px) / 2 + 8px));
+
+  position: absolute;
+  z-index: 5;
+  top: var(--prompt-start-top);
+  right: var(--prompt-start-right);
+  width: fit-content;
+  max-width: min(560px, calc(100% - 64px));
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 30px;
+  background: ${appColors.surface};
+  box-shadow: 0 8px 28px #00000012;
+  color: ${appColors.text};
+  font-size: 14px;
+  letter-spacing: -0.02em;
+  line-height: 1.65;
+  text-align: left;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 1;
+  will-change: top, right, border-radius, background, box-shadow, opacity;
+  animation: ${floatingPromptToUserMessage} 480ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 220ms ease;
+
+  &[data-handoff='true'] {
+    opacity: 0;
+  }
+
+  @media (max-width: 520px) {
+    --prompt-start-top: calc(50% + 16px);
+    --prompt-start-right: 18px;
+    --prompt-end-top: 24px;
+    --prompt-end-right: 18px;
+
+    max-width: calc(100% - 36px);
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    &[data-transitioning='true'] {
-      animation: none;
-    }
+    animation: none;
+    top: var(--prompt-end-top);
+    right: var(--prompt-end-right);
   }
 `
 
