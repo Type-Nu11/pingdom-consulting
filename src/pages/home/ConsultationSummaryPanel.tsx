@@ -15,6 +15,8 @@ type ConsultationSummaryPanelProps = {
   categoryOptions: readonly string[]
   additionalDetails: string
   isConfirmed: boolean
+  isSubmitting: boolean
+  submissionError: string | null
   onAdditionalDetailsChange: (value: string) => void
   onCategoryChange: (categoryLabel: string) => void
   onLocationChange: (location: LocationSelection) => void
@@ -31,6 +33,8 @@ export default function ConsultationSummaryPanel({
   categoryOptions,
   additionalDetails,
   isConfirmed,
+  isSubmitting,
+  submissionError,
   onAdditionalDetailsChange,
   onCategoryChange,
   onLocationChange,
@@ -190,7 +194,8 @@ export default function ConsultationSummaryPanel({
             <S.ItemCopy>
               <span>주요 운영 시간대</span>
               <strong>
-                {operatingHours.startTime} ~ {operatingHours.endTime}
+                {operatingHours.operatingDays ?? '평일'} {operatingHours.startTime} ~{' '}
+                {operatingHours.endTime}
               </strong>
             </S.ItemCopy>
             <S.EditButton
@@ -246,10 +251,15 @@ export default function ConsultationSummaryPanel({
 
         <S.ConfirmButton
           type="submit"
-          disabled={isConfirmed || editingField !== null}
+          disabled={isConfirmed || editingField !== null || isSubmitting}
         >
-          {isConfirmed ? '확인 완료' : '이 정보로 상담 시작'}
+          {isConfirmed
+            ? '분석 요청 완료'
+            : isSubmitting
+              ? '분석 요청 전송 중...'
+              : '이 정보로 분석 요청'}
         </S.ConfirmButton>
+        {submissionError ? <S.SubmissionError role="alert">{submissionError}</S.SubmissionError> : null}
       </S.SummaryForm>
     </S.SummaryPanel>
   )

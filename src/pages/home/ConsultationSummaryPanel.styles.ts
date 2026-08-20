@@ -359,3 +359,10 @@ export const ConfirmButton = styled.button`
     color: #b7b7bd;
   }
 `
+
+export const SubmissionError = styled.p`
+  margin: 10px 0 0;
+  color: #c8284f;
+  font-size: 13px;
+  line-height: 1.5;
+`

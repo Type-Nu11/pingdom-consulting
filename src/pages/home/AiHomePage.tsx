@@ -13,6 +13,7 @@ import {
   CONSULTATION_PROMPT_MAX_LENGTH,
   requestConsultationIntro,
 } from '../../features/consultation/consultationAiApi'
+import { requestLocationAnalysisReport } from '../../features/analysis/locationAnalysisReportApi'
 import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
@@ -102,6 +103,30 @@ function formatSessionPreview(title: string) {
   return characters.length > SESSION_TITLE_PREVIEW_LENGTH
     ? `${characters.slice(0, SESSION_TITLE_PREVIEW_LENGTH).join('')}...`
     : title
+}
+
+function formatTargetCustomerGroup(customer: TargetCustomerSelection) {
+  const ages = customer.ageGroups
+    .map((ageGroup) => Number.parseInt(ageGroup, 10))
+    .sort((left, right) => left - right)
+  const ageRanges: string[] = []
+
+  for (let startIndex = 0; startIndex < ages.length; ) {
+    let endIndex = startIndex
+
+    while (ages[endIndex + 1] === ages[endIndex] + 10) {
+      endIndex += 1
+    }
+
+    const startAge = ages[startIndex]
+    const endAge = ages[endIndex]
+    ageRanges.push(
+      startAge === endAge ? `${startAge}대` : `${startAge}~${endAge}대`,
+    )
+    startIndex = endIndex + 1
+  }
+
+  return `${ageRanges.join(', ')} ${customer.nationality}`
 }
 
 function sortSessions(sessions: ConsultationSession[]) {
@@ -423,12 +448,17 @@ function AiHomePage() {
   const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(
     () => storedActiveSession?.isSummaryConfirmed ?? false,
   )
+  const [isSubmittingAnalysisReport, setIsSubmittingAnalysisReport] =
+    useState(false)
+  const [analysisReportSubmissionError, setAnalysisReportSubmissionError] =
+    useState<string | null>(null)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
   const conversationMessagesRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const introRequestRef = useRef<AbortController | null>(null)
+  const analysisReportRequestRef = useRef<AbortController | null>(null)
 
   const confirmedCategoryLabel =
     confirmedCategory === 'OTHER'
@@ -459,7 +489,7 @@ function AiHomePage() {
       : null
   const consultationReadyMessage =
     confirmedCategoryLabel && confirmedLocation && confirmedTargetCustomer && confirmedOperatingHours && isSummaryConfirmed
-      ? `${confirmedCategoryLabel} 업종과 ${confirmedLocation.displayName}, ${confirmedTargetCustomer.ageGroups.join(', ')} ${confirmedTargetCustomer.nationality} 고객층, ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime} 운영 시간 정보를 확인했어요.${confirmedAdditionalDetails ? ' 기타 요청사항도 함께 반영해' : ''} 상권 분석을 준비할게요.`
+      ? `${confirmedCategoryLabel} 업종의 ${confirmedLocation.displayName} 분석 요청을 전송했어요. ${formatTargetCustomerGroup(confirmedTargetCustomer)} 고객층과 ${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime} 운영 시간을 기준으로 분석할게요.`
       : null
   const initialTypewriter = useTypewriter(
     assistantMessage,
@@ -677,6 +707,7 @@ function AiHomePage() {
 
   function resetConsulting() {
     introRequestRef.current?.abort()
+    analysisReportRequestRef.current?.abort()
     setActiveSessionId(null)
     setIsRestoredSession(false)
     setPrompt('')
@@ -693,12 +724,15 @@ function AiHomePage() {
     setAdditionalDetails('')
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
+    setIsSubmittingAnalysisReport(false)
+    setAnalysisReportSubmissionError(null)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
 
   function restoreSession(session: ConsultationSession) {
     introRequestRef.current?.abort()
+    analysisReportRequestRef.current?.abort()
     setIsRestoredSession(true)
     setPrompt('')
     setPendingPrompt(session.pendingPrompt)
@@ -714,6 +748,8 @@ function AiHomePage() {
     setAdditionalDetails(session.additionalDetails)
     setConfirmedAdditionalDetails(session.confirmedAdditionalDetails)
     setIsSummaryConfirmed(session.isSummaryConfirmed)
+    setIsSubmittingAnalysisReport(false)
+    setAnalysisReportSubmissionError(null)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
@@ -880,6 +916,7 @@ function AiHomePage() {
     setConfirmedOperatingHours(null)
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
   function handleTargetCustomerConfirm(customer: TargetCustomerSelection) {
@@ -887,12 +924,14 @@ function AiHomePage() {
     setConfirmedOperatingHours(null)
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
   function handleTargetCustomerChange() {
     setConfirmedTargetCustomer(null)
     setConfirmedOperatingHours(null)
     setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
   function handleSummaryCategoryChange(categoryLabel: string) {
@@ -906,6 +945,8 @@ function AiHomePage() {
     setConfirmedCategory(nextCategory)
     setCustomCategory(nextCustomCategory)
     setConfirmedCustomCategory(nextCustomCategory)
+    setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
   function handleSummaryLocationChange(location: LocationSelection) {
@@ -913,22 +954,70 @@ function AiHomePage() {
     setConfirmedTargetCustomer(null)
     setConfirmedOperatingHours(null)
     setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
-  function handleSummaryConfirm() {
-    setConfirmedAdditionalDetails(additionalDetails.trim())
-    setIsSummaryConfirmed(true)
+  async function handleSummaryConfirm() {
+    if (
+      !confirmedCategoryLabel ||
+      !confirmedLocation ||
+      !confirmedTargetCustomer ||
+      !confirmedOperatingHours
+    ) {
+      return
+    }
+
+    analysisReportRequestRef.current?.abort()
+    const controller = new AbortController()
+    analysisReportRequestRef.current = controller
+    setIsSubmittingAnalysisReport(true)
+    setAnalysisReportSubmissionError(null)
+
+    try {
+      await requestLocationAnalysisReport(
+        {
+          region:
+            confirmedLocation.address ||
+            confirmedLocation.roadAddress ||
+            confirmedLocation.displayName,
+          category: confirmedCategoryLabel,
+          targetCustomerGroup: formatTargetCustomerGroup(
+            confirmedTargetCustomer,
+          ),
+          operatingHours: `${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime}`,
+        },
+        controller.signal,
+      )
+
+      if (!controller.signal.aborted) {
+        setConfirmedAdditionalDetails(additionalDetails.trim())
+        setIsSummaryConfirmed(true)
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        setAnalysisReportSubmissionError(
+          '분석 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        )
+      }
+    } finally {
+      if (analysisReportRequestRef.current === controller) {
+        analysisReportRequestRef.current = null
+        setIsSubmittingAnalysisReport(false)
+      }
+    }
   }
 
   function handleOperatingHoursConfirm(operatingHours: OperatingHours) {
     setConfirmedOperatingHours(operatingHours)
     setConfirmedAdditionalDetails('')
     setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
   function handleOperatingHoursChange() {
     setConfirmedOperatingHours(null)
     setIsSummaryConfirmed(false)
+    setAnalysisReportSubmissionError(null)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -1476,6 +1565,7 @@ function AiHomePage() {
                   <>
                     <S.UserMessageRow>
                       <S.UserMessageBubble>
+                        {confirmedOperatingHours.operatingDays ?? '평일'}{' '}
                         {confirmedOperatingHours.startTime} ~{' '}
                         {confirmedOperatingHours.endTime}
                       </S.UserMessageBubble>
@@ -1514,6 +1604,8 @@ function AiHomePage() {
                             categoryOptions={STORE_CATEGORY_LABELS}
                             additionalDetails={additionalDetails}
                             isConfirmed={isSummaryConfirmed}
+                            isSubmitting={isSubmittingAnalysisReport}
+                            submissionError={analysisReportSubmissionError}
                             onAdditionalDetailsChange={setAdditionalDetails}
                             onCategoryChange={handleSummaryCategoryChange}
                             onLocationChange={handleSummaryLocationChange}
