@@ -253,10 +253,10 @@ export default function ConsultationSummaryPanel({
           type="submit"
           disabled={isConfirmed || editingField !== null || isSubmitting}
         >
-          {isConfirmed
-            ? '분석 요청 완료'
-            : isSubmitting
-              ? '분석 요청 전송 중...'
+          {isSubmitting
+            ? '상권 분석 중...'
+            : isConfirmed
+              ? '분석 요청 완료'
               : '이 정보로 분석 요청'}
         </S.ConfirmButton>
         {submissionError ? <S.SubmissionError role="alert">{submissionError}</S.SubmissionError> : null}

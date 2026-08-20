@@ -13,7 +13,16 @@ import {
   CONSULTATION_PROMPT_MAX_LENGTH,
   requestConsultationIntro,
 } from '../../features/consultation/consultationAiApi'
-import { requestLocationAnalysisReport } from '../../features/analysis/locationAnalysisReportApi'
+import {
+  requestLocationAnalysisReport,
+  type LocationAnalysisReport,
+} from '../../features/analysis/locationAnalysisReportApi'
+import {
+  deleteLocationAnalysisReport,
+  readLocationAnalysisReport,
+  saveLocationAnalysisReport,
+} from '../../features/analysis/locationAnalysisReportStorage'
+import type { ApiError } from '../../features/api/apiClient'
 import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
@@ -51,6 +60,7 @@ const CATEGORY_TEXT_SEQUENCE = [
 
 const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
 const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
+const ANALYSIS_PROGRESS_MESSAGE_GAP_MS = 450
 const CONSULTATION_HISTORY_STORAGE_KEY = 'pingdom-ai-consultation-history-v1'
 const SESSION_TITLE_PREVIEW_LENGTH = 11
 const STARTER_PROMPTS = [
@@ -60,6 +70,12 @@ const STARTER_PROMPTS = [
 ] as const
 
 type StoreCategoryCode = (typeof STORE_CATEGORIES)[number]['code']
+
+type AnalysisProgressStage =
+  | 'initial-loading'
+  | 'message'
+  | 'analysis-loading'
+  | null
 
 type ConsultationSession = {
   id: string
@@ -367,6 +383,14 @@ function FileIcon() {
   )
 }
 
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3v11M7.5 10.5 12 15l4.5-4.5M5 20h14" />
+    </svg>
+  )
+}
+
 function ImageIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -452,6 +476,10 @@ function AiHomePage() {
     useState(false)
   const [analysisReportSubmissionError, setAnalysisReportSubmissionError] =
     useState<string | null>(null)
+  const [locationAnalysisReport, setLocationAnalysisReport] =
+    useState<LocationAnalysisReport | null>(null)
+  const [analysisProgressStage, setAnalysisProgressStage] =
+    useState<AnalysisProgressStage>(null)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
@@ -459,6 +487,7 @@ function AiHomePage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const introRequestRef = useRef<AbortController | null>(null)
   const analysisReportRequestRef = useRef<AbortController | null>(null)
+  const analysisProgressMessageTimerRef = useRef<number | null>(null)
 
   const confirmedCategoryLabel =
     confirmedCategory === 'OTHER'
@@ -487,10 +516,14 @@ function AiHomePage() {
     confirmedOperatingHours
       ? '좋아요. 지금까지 알려주신 정보가 맞는지 확인해 주세요.'
       : null
-  const consultationReadyMessage =
-    confirmedCategoryLabel && confirmedLocation && confirmedTargetCustomer && confirmedOperatingHours && isSummaryConfirmed
-      ? `${confirmedCategoryLabel} 업종의 ${confirmedLocation.displayName} 분석 요청을 전송했어요. ${formatTargetCustomerGroup(confirmedTargetCustomer)} 고객층과 ${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime} 운영 시간을 기준으로 분석할게요.`
+  const analysisProgressMessage =
+    analysisProgressStage === 'message' ||
+    analysisProgressStage === 'analysis-loading'
+      ? '분석 요청이 전송되었습니다. 상권을 분석하고 있습니다.'
       : null
+  const analysisCompletionMessage = locationAnalysisReport
+    ? '상권 분석이 완료되었습니다. PDF 보고서를 다운로드해 주세요.'
+    : null
   const initialTypewriter = useTypewriter(
     assistantMessage,
     520,
@@ -521,9 +554,14 @@ function AiHomePage() {
     28,
     isRestoredSession,
   )
-  const consultationReadyTypewriter = useTypewriter(
-    consultationReadyMessage,
-    ASSISTANT_RESPONSE_LOADING_DELAY,
+  const analysisProgressTypewriter = useTypewriter(
+    analysisProgressMessage,
+    0,
+    26,
+  )
+  const analysisCompletionTypewriter = useTypewriter(
+    analysisCompletionMessage,
+    0,
     26,
     isRestoredSession,
   )
@@ -703,11 +741,68 @@ function AiHomePage() {
     targetCustomerConfirmationTypewriter.isComplete,
     operatingHoursConfirmationTypewriter.isComplete,
     isSummaryConfirmed,
+    analysisProgressStage,
   ])
+
+  function clearAnalysisProgressMessageTimer() {
+    if (analysisProgressMessageTimerRef.current !== null) {
+      window.clearTimeout(analysisProgressMessageTimerRef.current)
+      analysisProgressMessageTimerRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    if (
+      analysisProgressStage !== 'message' ||
+      !analysisProgressTypewriter.isComplete
+    ) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setAnalysisProgressStage('analysis-loading')
+      analysisProgressMessageTimerRef.current = null
+    }, ANALYSIS_PROGRESS_MESSAGE_GAP_MS)
+    analysisProgressMessageTimerRef.current = timer
+
+    return () => {
+      if (analysisProgressMessageTimerRef.current === timer) {
+        window.clearTimeout(timer)
+        analysisProgressMessageTimerRef.current = null
+      }
+    }
+  }, [analysisProgressStage, analysisProgressTypewriter.isComplete])
+
+  useEffect(() => {
+    let isCurrentSession = true
+
+    if (!activeSessionId) {
+      return () => {
+        isCurrentSession = false
+      }
+    }
+
+    void readLocationAnalysisReport(activeSessionId)
+      .then((report) => {
+        if (isCurrentSession) {
+          setLocationAnalysisReport(report)
+        }
+      })
+      .catch((error: unknown) => {
+        if (import.meta.env.DEV) {
+          console.error('저장된 입지 분석 PDF를 불러오지 못했습니다.', error)
+        }
+      })
+
+    return () => {
+      isCurrentSession = false
+    }
+  }, [activeSessionId])
 
   function resetConsulting() {
     introRequestRef.current?.abort()
     analysisReportRequestRef.current?.abort()
+    clearAnalysisProgressMessageTimer()
     setActiveSessionId(null)
     setIsRestoredSession(false)
     setPrompt('')
@@ -726,6 +821,8 @@ function AiHomePage() {
     setIsSummaryConfirmed(false)
     setIsSubmittingAnalysisReport(false)
     setAnalysisReportSubmissionError(null)
+    setLocationAnalysisReport(null)
+    setAnalysisProgressStage(null)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
@@ -733,6 +830,7 @@ function AiHomePage() {
   function restoreSession(session: ConsultationSession) {
     introRequestRef.current?.abort()
     analysisReportRequestRef.current?.abort()
+    clearAnalysisProgressMessageTimer()
     setIsRestoredSession(true)
     setPrompt('')
     setPendingPrompt(session.pendingPrompt)
@@ -750,6 +848,8 @@ function AiHomePage() {
     setIsSummaryConfirmed(session.isSummaryConfirmed)
     setIsSubmittingAnalysisReport(false)
     setAnalysisReportSubmissionError(null)
+    setLocationAnalysisReport(null)
+    setAnalysisProgressStage(null)
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
@@ -856,6 +956,13 @@ function AiHomePage() {
         (session) => session.id !== sessionPendingDeletion.id,
       ),
       isActiveSession ? null : activeSessionId,
+    )
+    void deleteLocationAnalysisReport(sessionPendingDeletion.id).catch(
+      (error: unknown) => {
+        if (import.meta.env.DEV) {
+          console.error('입지 분석 PDF를 삭제하지 못했습니다.', error)
+        }
+      },
     )
     setSessionPendingDeletion(null)
 
@@ -968,13 +1075,22 @@ function AiHomePage() {
     }
 
     analysisReportRequestRef.current?.abort()
+    clearAnalysisProgressMessageTimer()
     const controller = new AbortController()
     analysisReportRequestRef.current = controller
     setIsSubmittingAnalysisReport(true)
     setAnalysisReportSubmissionError(null)
+    setLocationAnalysisReport(null)
+    setConfirmedAdditionalDetails(additionalDetails.trim())
+    setIsSummaryConfirmed(true)
+    setAnalysisProgressStage('initial-loading')
+    analysisProgressMessageTimerRef.current = window.setTimeout(() => {
+      setAnalysisProgressStage('message')
+      analysisProgressMessageTimerRef.current = null
+    }, ASSISTANT_RESPONSE_LOADING_DELAY)
 
     try {
-      await requestLocationAnalysisReport(
+      const report = await requestLocationAnalysisReport(
         {
           region:
             confirmedLocation.address ||
@@ -990,14 +1106,33 @@ function AiHomePage() {
       )
 
       if (!controller.signal.aborted) {
-        setConfirmedAdditionalDetails(additionalDetails.trim())
-        setIsSummaryConfirmed(true)
+        clearAnalysisProgressMessageTimer()
+        setLocationAnalysisReport(report)
+        if (activeSessionId) {
+          void saveLocationAnalysisReport(activeSessionId, report).catch(
+            (error: unknown) => {
+              if (import.meta.env.DEV) {
+                console.error('입지 분석 PDF를 저장하지 못했습니다.', error)
+              }
+            },
+          )
+        }
       }
-    } catch {
+    } catch (error) {
       if (!controller.signal.aborted) {
+        clearAnalysisProgressMessageTimer()
+        if (import.meta.env.DEV) {
+          console.error('입지 분석 PDF 요청에 실패했습니다.', error)
+        }
+
+        const apiError = error as ApiError
         setAnalysisReportSubmissionError(
-          '분석 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
+          apiError.kind === 'timeout'
+            ? '분석 보고서 생성 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.'
+            : '분석 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
         )
+        setIsSummaryConfirmed(false)
+        setAnalysisProgressStage(null)
       }
     } finally {
       if (analysisReportRequestRef.current === controller) {
@@ -1005,6 +1140,21 @@ function AiHomePage() {
         setIsSubmittingAnalysisReport(false)
       }
     }
+  }
+
+  function handleLocationAnalysisReportDownload() {
+    if (!locationAnalysisReport) {
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(locationAnalysisReport.pdf)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = locationAnalysisReport.filename
+    document.body.append(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
   }
 
   function handleOperatingHoursConfirm(operatingHours: OperatingHours) {
@@ -1629,31 +1779,77 @@ function AiHomePage() {
                           : ''}
                       </S.UserMessageBubble>
                     </S.UserMessageRow>
-                    <S.AssistantMessageRow>
-                      <S.AssistantAvatar aria-hidden="true">
-                        <img src="/pingdom-favicon.png" alt="" />
-                      </S.AssistantAvatar>
-                      <S.AssistantFollowup
-                        role="status"
-                        aria-busy={consultationReadyTypewriter.isTyping}
-                      >
-                        {consultationReadyTypewriter.displayedText ? (
-                          <>
-                            {consultationReadyTypewriter.displayedText}
-                            {consultationReadyTypewriter.isTyping ? (
+                    {isSubmittingAnalysisReport ? (
+                      <>
+                        {analysisProgressStage === 'initial-loading' ? (
+                          <S.AssistantMessageRow>
+                            <S.AssistantAvatar aria-hidden="true">
+                              <img src="/pingdom-favicon.png" alt="" />
+                            </S.AssistantAvatar>
+                            <S.AssistantMessageContent>
+                              <S.TypingIndicator aria-label="분석 요청을 전송하고 있습니다">
+                                <span />
+                                <span />
+                                <span />
+                              </S.TypingIndicator>
+                            </S.AssistantMessageContent>
+                          </S.AssistantMessageRow>
+                        ) : null}
+                        {analysisProgressStage === 'message' ||
+                        analysisProgressStage === 'analysis-loading' ? (
+                          <S.AssistantMessageRow>
+                            <S.AssistantAvatar aria-hidden="true">
+                              <img src="/pingdom-favicon.png" alt="" />
+                            </S.AssistantAvatar>
+                            <S.AssistantMessageContent>
+                              <S.AssistantFollowup role="status">
+                                {analysisProgressTypewriter.displayedText}
+                                {analysisProgressTypewriter.isTyping ? (
+                                  <S.TypingCursor aria-hidden="true" />
+                                ) : null}
+                              </S.AssistantFollowup>
+                            </S.AssistantMessageContent>
+                          </S.AssistantMessageRow>
+                        ) : null}
+                        {analysisProgressStage === 'analysis-loading' ? (
+                          <S.AssistantMessageRow>
+                            <S.AssistantAvatar aria-hidden="true">
+                              <img src="/pingdom-favicon.png" alt="" />
+                            </S.AssistantAvatar>
+                            <S.AssistantMessageContent>
+                              <S.TypingIndicator aria-label="상권 분석을 진행하고 있습니다">
+                                <span />
+                                <span />
+                                <span />
+                              </S.TypingIndicator>
+                            </S.AssistantMessageContent>
+                          </S.AssistantMessageRow>
+                        ) : null}
+                      </>
+                    ) : locationAnalysisReport ? (
+                      <S.AssistantMessageRow>
+                        <S.AssistantAvatar aria-hidden="true">
+                          <img src="/pingdom-favicon.png" alt="" />
+                        </S.AssistantAvatar>
+                        <S.AssistantMessageContent>
+                          <S.AssistantFollowup role="status">
+                            {analysisCompletionTypewriter.displayedText}
+                            {analysisCompletionTypewriter.isTyping ? (
                               <S.TypingCursor aria-hidden="true" />
                             ) : null}
-                          </>
-                        ) : null}
-                        {!consultationReadyTypewriter.displayedText ? (
-                          <S.TypingIndicator aria-label="AI가 답변을 작성하고 있습니다">
-                            <span />
-                            <span />
-                            <span />
-                          </S.TypingIndicator>
-                        ) : null}
-                      </S.AssistantFollowup>
-                    </S.AssistantMessageRow>
+                          </S.AssistantFollowup>
+                          {analysisCompletionTypewriter.isComplete ? (
+                            <S.AnalysisReportDownloadButton
+                              type="button"
+                              onClick={handleLocationAnalysisReportDownload}
+                            >
+                              <DownloadIcon />
+                              PDF 보고서 다운로드
+                            </S.AnalysisReportDownloadButton>
+                          ) : null}
+                        </S.AssistantMessageContent>
+                      </S.AssistantMessageRow>
+                    ) : null}
                   </>
                 ) : null}
 

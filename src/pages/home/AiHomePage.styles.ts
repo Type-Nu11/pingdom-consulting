@@ -848,6 +848,54 @@ export const AssistantFollowup = styled.p`
   line-height: 1.7;
 `
 
+export const AnalysisReportDownloadButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  margin-top: 12px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: linear-gradient(135deg, ${appColors.primary}, #ff4776);
+  box-shadow: 0 8px 20px #ff195633;
+  color: ${appColors.primaryText};
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    filter 150ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px #ff19563d;
+    filter: brightness(1.02);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 5px 12px #ff19562e;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 3px;
+  }
+`
+
 export const ConversationComposer = styled.div`
   width: min(800px, 100%);
   flex-shrink: 0;
