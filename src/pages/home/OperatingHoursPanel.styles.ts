@@ -273,7 +273,7 @@ export const TimeOption = styled.button`
 
 export const TimeRangeError = styled.p`
   margin: 10px 0 0;
-  color: #c8284f;
+  color: ${appColors.primary};
   font-size: 13px;
 `
 

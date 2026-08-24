@@ -360,7 +360,7 @@ export const ConfirmButton = styled.button`
 
 export const SubmissionError = styled.p`
   margin: 10px 0 0;
-  color: #c8284f;
+  color: ${appColors.primary};
   font-size: 13px;
   line-height: 1.5;
 `

@@ -383,7 +383,7 @@ export const HistoryMenuItem = styled.button`
   }
 
   &[data-danger='true'] {
-    color: #d6334a;
+    color: ${appColors.primary};
   }
 `
 
@@ -471,12 +471,12 @@ export const DeleteDialogButton = styled.button`
   }
 
   &[data-danger='true'] {
-    background: #ef3553;
+    background: ${appColors.primary};
     color: #fff;
   }
 
   &[data-danger='true']:hover {
-    background: #dd2544;
+    background: ${appColors.primary};
   }
 
   &:focus-visible {
@@ -843,7 +843,7 @@ export const AnalysisReportDownloadButton = styled.button`
   padding: 0 18px;
   border: 1px solid transparent;
   border-radius: 14px;
-  background: linear-gradient(135deg, ${appColors.primary}, #ff4776);
+  background: ${appColors.primary};
   box-shadow: 0 8px 20px #ff195633;
   color: ${appColors.primaryText};
   font-size: 14px;
