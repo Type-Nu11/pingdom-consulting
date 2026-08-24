@@ -103,7 +103,6 @@ export const SummaryItem = styled.div`
   justify-content: space-between;
   gap: 18px;
   padding: 14px 16px;
-  border: 1px solid ${appColors.borderSoft};
   border-radius: 15px;
   background: ${appColors.surfaceLow};
 `
@@ -139,7 +138,7 @@ export const EditButton = styled.button`
   min-height: 38px;
   flex-shrink: 0;
   padding: 0 15px;
-  border: 1px solid ${appColors.border};
+  border: 0;
   border-radius: 11px;
   background: ${appColors.surface};
   color: ${appColors.text};
@@ -147,7 +146,6 @@ export const EditButton = styled.button`
   font-weight: 600;
 
   &:hover:not(:disabled) {
-    border-color: ${appColors.primarySoft};
     background: ${appColors.primaryTint};
     color: ${appColors.primary};
   }
