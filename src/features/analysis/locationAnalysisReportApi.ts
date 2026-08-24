@@ -7,6 +7,8 @@ export type LocationAnalysisReportRequest = {
   category: string
   targetCustomerGroup: string
   operatingHours: string
+  email: string
+  privacyConsent: boolean
 }
 
 export type LocationAnalysisReport = {

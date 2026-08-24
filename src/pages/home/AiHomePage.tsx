@@ -1040,7 +1040,10 @@ function AiHomePage() {
     setAnalysisReportSubmissionError(null)
   }
 
-  async function handleSummaryConfirm() {
+  async function handleSummaryConfirm(
+    email: string,
+    privacyConsent: true,
+  ) {
     if (
       !confirmedCategoryLabel ||
       !confirmedLocation ||
@@ -1077,6 +1080,8 @@ function AiHomePage() {
             confirmedTargetCustomer,
           ),
           operatingHours: `${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime}`,
+          email,
+          privacyConsent,
         },
         controller.signal,
       )

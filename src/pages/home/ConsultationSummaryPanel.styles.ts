@@ -366,3 +366,119 @@ export const SubmissionError = styled.p`
   font-size: 13px;
   line-height: 1.5;
 `
+
+export const EmailDialogOverlay = styled.div`
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #19191f73;
+`
+
+export const EmailDialog = styled.section`
+  width: min(100%, 420px);
+  border-radius: 20px;
+  background: ${appColors.surface};
+  box-shadow: 0 20px 54px #0000002e;
+`
+
+export const EmailDialogForm = styled.form`
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+`
+
+export const EmailDialogTitle = styled.h4`
+  margin: 0;
+  color: ${appColors.strongText};
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+`
+
+export const EmailDialogDescription = styled.p`
+  margin: -8px 0 0;
+  color: ${appColors.muted};
+  font-size: 13px;
+  line-height: 1.6;
+`
+
+export const EmailField = styled.div`
+  display: grid;
+  gap: 8px;
+`
+
+export const EmailLabel = styled.label`
+  color: ${appColors.strongText};
+  font-size: 13px;
+  font-weight: 600;
+`
+
+export const EmailInput = styled.input`
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid ${appColors.border};
+  border-radius: 12px;
+  background: ${appColors.surface};
+  color: ${appColors.text};
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+
+  &::placeholder {
+    color: #9999a1;
+  }
+
+  &:focus {
+    border-color: ${appColors.primary};
+    box-shadow: 0 0 0 3px #ff195614;
+  }
+`
+
+export const PrivacyConsentLabel = styled.label`
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: ${appColors.text};
+  font-size: 13px;
+  line-height: 1.55;
+`
+
+export const PrivacyConsentInput = styled.input`
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+  accent-color: ${appColors.primary};
+`
+
+export const EmailDialogActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+`
+
+export const EmailSubmitButton = styled.button`
+  min-height: 40px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 11px;
+  background: ${appColors.primary};
+  color: ${appColors.primaryText};
+  font-size: 13px;
+  font-weight: 600;
+
+  &:focus-visible {
+    outline: 2px solid ${appColors.primarySoft};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    background: #ececef;
+    color: #b7b7bd;
+  }
+`

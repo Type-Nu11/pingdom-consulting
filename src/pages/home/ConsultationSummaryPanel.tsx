@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import type { LocationSelection } from '../../features/location/location.types'
 import type { OperatingHours } from './operatingHours.types'
 import type { TargetCustomerSelection } from './targetCustomerOptions'
@@ -22,7 +23,7 @@ type ConsultationSummaryPanelProps = {
   onLocationChange: (location: LocationSelection) => void
   onTargetCustomerChange: () => void
   onOperatingHoursChange: () => void
-  onConfirm: () => void
+  onConfirm: (email: string, privacyConsent: true) => void
 }
 
 export default function ConsultationSummaryPanel({
@@ -47,13 +48,28 @@ export default function ConsultationSummaryPanel({
   >(null)
   const [draftCategory, setDraftCategory] = useState(categoryLabel)
   const [draftCustomCategory, setDraftCustomCategory] = useState('')
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [hasPrivacyConsent, setHasPrivacyConsent] = useState(false)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!isConfirmed && editingField === null) {
-      onConfirm()
+      setIsEmailDialogOpen(true)
     }
+  }
+
+  function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail || !hasPrivacyConsent) {
+      return
+    }
+
+    setIsEmailDialogOpen(false)
+    onConfirm(normalizedEmail, true)
   }
 
   function openCategoryEditor() {
@@ -261,6 +277,76 @@ export default function ConsultationSummaryPanel({
         </S.ConfirmButton>
         {submissionError ? <S.SubmissionError role="alert">{submissionError}</S.SubmissionError> : null}
       </S.SummaryForm>
+
+      {isEmailDialogOpen
+        ? createPortal(
+            <S.EmailDialogOverlay>
+              <S.EmailDialog
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="report-email-dialog-title"
+                aria-describedby="report-email-dialog-description"
+              >
+                <S.EmailDialogForm onSubmit={handleEmailSubmit}>
+                  <S.EmailDialogTitle id="report-email-dialog-title">
+                    보고서 보관 이메일 입력
+                  </S.EmailDialogTitle>
+                  <S.EmailDialogDescription id="report-email-dialog-description">
+                    이메일은 생성된 보고서의 보관 및 이후 조회·다운로드 요청에 사용됩니다.
+                  </S.EmailDialogDescription>
+
+                  <S.EmailField>
+                    <S.EmailLabel htmlFor="location-analysis-report-email">
+                      이메일
+                    </S.EmailLabel>
+                    <S.EmailInput
+                      id="location-analysis-report-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.currentTarget.value)}
+                      placeholder="owner@example.com"
+                      required
+                      autoFocus
+                    />
+                  </S.EmailField>
+
+                  <S.PrivacyConsentLabel>
+                    <S.PrivacyConsentInput
+                      type="checkbox"
+                      checked={hasPrivacyConsent}
+                      onChange={(event) =>
+                        setHasPrivacyConsent(event.currentTarget.checked)
+                      }
+                      required
+                    />
+                    <span>
+                      이메일과 분석 조건의 수집·이용 및 보고서 보관에 동의합니다.
+                    </span>
+                  </S.PrivacyConsentLabel>
+
+                  <S.EmailDialogActions>
+                    <S.CancelButton
+                      type="button"
+                      onClick={() => setIsEmailDialogOpen(false)}
+                    >
+                      취소
+                    </S.CancelButton>
+                    <S.EmailSubmitButton
+                      type="submit"
+                      disabled={
+                        isSubmitting || !email.trim() || !hasPrivacyConsent
+                      }
+                    >
+                      분석 요청하기
+                    </S.EmailSubmitButton>
+                  </S.EmailDialogActions>
+                </S.EmailDialogForm>
+              </S.EmailDialog>
+            </S.EmailDialogOverlay>,
+            document.body,
+          )
+        : null}
     </S.SummaryPanel>
   )
 }
