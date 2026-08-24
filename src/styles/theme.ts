@@ -2,7 +2,7 @@
 export const semanticColors = {
   primary: {
     normal: '#FF1956',
-    alternative: '#FF4A75',
+    alternative: '#FF1956',
     assistive: '#FFC9D3',
   },
   secondary: {

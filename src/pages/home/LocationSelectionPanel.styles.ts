@@ -213,7 +213,7 @@ export const SearchMessage = styled.p`
 `
 
 export const SearchError = styled(SearchMessage)`
-  color: #c8284f;
+  color: ${appColors.primary};
 `
 
 export const LocationResults = styled.div`

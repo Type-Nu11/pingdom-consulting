@@ -61,6 +61,7 @@ const CATEGORY_TEXT_SEQUENCE = [
 const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
 const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
 const ANALYSIS_PROGRESS_MESSAGE_GAP_MS = 450
+const CONVERSATION_TRANSITION_DELAY = 480
 const CONSULTATION_HISTORY_STORAGE_KEY = 'pingdom-ai-consultation-history-v1'
 const SESSION_TITLE_PREVIEW_LENGTH = 11
 const STARTER_PROMPTS = [
@@ -403,20 +404,12 @@ function ImageIcon() {
 
 function AiHomePage() {
   const [storedHistory] = useState(readConsultationHistory)
-  const storedActiveSession =
-    storedHistory.sessions.find(
-      (session) => session.id === storedHistory.activeSessionId,
-    ) ?? storedHistory.sessions[0]
   const [sessions, setSessions] = useState<ConsultationSession[]>(
     () => storedHistory.sessions,
   )
   const sessionsRef = useRef<ConsultationSession[]>(storedHistory.sessions)
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(
-    () => storedActiveSession?.id ?? null,
-  )
-  const [isRestoredSession, setIsRestoredSession] = useState(
-    () => Boolean(storedActiveSession),
-  )
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [isRestoredSession, setIsRestoredSession] = useState(false)
   const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(
     null,
   )
@@ -427,51 +420,26 @@ function AiHomePage() {
   const [sessionPendingDeletion, setSessionPendingDeletion] =
     useState<ConsultationSession | null>(null)
   const [prompt, setPrompt] = useState('')
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(
-    () => storedActiveSession?.pendingPrompt ?? null,
-  )
-  const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(
-    () => storedActiveSession?.submittedPrompt ?? null,
-  )
-  const [assistantMessage, setAssistantMessage] = useState<string | null>(
-    () => storedActiveSession?.assistantMessage ?? null,
-  )
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(null)
+  const [assistantMessage, setAssistantMessage] = useState<string | null>(null)
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false)
   const [isPromptExpanded, setIsPromptExpanded] = useState(false)
   const [selectedCategory, setSelectedCategory] =
-    useState<StoreCategoryCode | null>(
-      () => storedActiveSession?.selectedCategory ?? null,
-    )
+    useState<StoreCategoryCode | null>(null)
   const [confirmedCategory, setConfirmedCategory] =
-    useState<StoreCategoryCode | null>(
-      () => storedActiveSession?.confirmedCategory ?? null,
-    )
-  const [customCategory, setCustomCategory] = useState(
-    () => storedActiveSession?.customCategory ?? '',
-  )
-  const [confirmedCustomCategory, setConfirmedCustomCategory] = useState(
-    () => storedActiveSession?.confirmedCustomCategory ?? '',
-  )
+    useState<StoreCategoryCode | null>(null)
+  const [customCategory, setCustomCategory] = useState('')
+  const [confirmedCustomCategory, setConfirmedCustomCategory] = useState('')
   const [confirmedLocation, setConfirmedLocation] =
-    useState<LocationSelection | null>(
-      () => storedActiveSession?.confirmedLocation ?? null,
-    )
+    useState<LocationSelection | null>(null)
   const [confirmedTargetCustomer, setConfirmedTargetCustomer] =
-    useState<TargetCustomerSelection | null>(
-      () => storedActiveSession?.confirmedTargetCustomer ?? null,
-    )
+    useState<TargetCustomerSelection | null>(null)
   const [confirmedOperatingHours, setConfirmedOperatingHours] =
-    useState<OperatingHours | null>(
-      () => storedActiveSession?.confirmedOperatingHours ?? null,
-    )
-  const [additionalDetails, setAdditionalDetails] = useState(
-    () => storedActiveSession?.additionalDetails ?? '',
-  )
-  const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] =
-    useState(() => storedActiveSession?.confirmedAdditionalDetails ?? '')
-  const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(
-    () => storedActiveSession?.isSummaryConfirmed ?? false,
-  )
+    useState<OperatingHours | null>(null)
+  const [additionalDetails, setAdditionalDetails] = useState('')
+  const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] = useState('')
+  const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(false)
   const [isSubmittingAnalysisReport, setIsSubmittingAnalysisReport] =
     useState(false)
   const [analysisReportSubmissionError, setAnalysisReportSubmissionError] =
@@ -506,7 +474,7 @@ function AiHomePage() {
     : null
   const locationConfirmationMessage =
     confirmedCategoryLabel && confirmedLocation
-      ? '좋아요. 마지막으로 이 입지에서 가장 먼저 만나고 싶은 주요 고객층을 선택해 주세요.'
+      ? '좋아요. 이 입지에서 가장 먼저 만나고 싶은 주요 고객층을 선택해 주세요.'
       : null
   const targetCustomerConfirmationMessage =
     confirmedTargetCustomer
@@ -557,7 +525,7 @@ function AiHomePage() {
   const analysisProgressTypewriter = useTypewriter(
     analysisProgressMessage,
     0,
-    26,
+    44,
   )
   const analysisCompletionTypewriter = useTypewriter(
     analysisCompletionMessage,
@@ -642,12 +610,20 @@ function AiHomePage() {
       return
     }
 
+    let handoffId: number | undefined
     const transitionId = window.setTimeout(() => {
       setSubmittedPrompt(pendingPrompt)
-      setPendingPrompt(null)
-    }, 720)
+      handoffId = window.setTimeout(() => {
+        setPendingPrompt((currentPrompt) =>
+          currentPrompt === pendingPrompt ? null : currentPrompt,
+        )
+      }, 220)
+    }, CONVERSATION_TRANSITION_DELAY)
 
-    return () => window.clearTimeout(transitionId)
+    return () => {
+      window.clearTimeout(transitionId)
+      window.clearTimeout(handoffId)
+    }
   }, [pendingPrompt])
 
   useEffect(() => {
@@ -1064,7 +1040,10 @@ function AiHomePage() {
     setAnalysisReportSubmissionError(null)
   }
 
-  async function handleSummaryConfirm() {
+  async function handleSummaryConfirm(
+    email: string,
+    privacyConsent: true,
+  ) {
     if (
       !confirmedCategoryLabel ||
       !confirmedLocation ||
@@ -1101,6 +1080,8 @@ function AiHomePage() {
             confirmedTargetCustomer,
           ),
           operatingHours: `${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime}`,
+          email,
+          privacyConsent,
         },
         controller.signal,
       )
@@ -1211,10 +1192,17 @@ function AiHomePage() {
     lockedPlaceholder?: string,
     isTransitioning = false,
   ) {
+    if (isTransitioning && pendingPrompt) {
+      return (
+        <S.ComposerArea data-transitioning="true">
+          <S.TransitionComposerPlaceholder aria-hidden="true" />
+        </S.ComposerArea>
+      )
+    }
+
     return (
       <S.ComposerArea
-        data-conversation={isLocked && !isTransitioning}
-        data-transitioning={isTransitioning}
+        data-conversation={isLocked}
       >
         <S.Form
           onSubmit={handlePromptSubmit}
@@ -1431,13 +1419,21 @@ function AiHomePage() {
           data-conversation={isCollectingCategory}
           data-transitioning={isTransitioningToConversation}
         >
+          {pendingPrompt ? (
+            <S.FloatingPromptBubble
+              data-handoff={submittedPrompt !== null}
+              aria-hidden={submittedPrompt !== null}
+            >
+              {pendingPrompt}
+            </S.FloatingPromptBubble>
+          ) : null}
           {submittedPrompt ? (
             <S.ConversationLayout
               aria-live="polite"
               onWheel={handleConversationGutterWheel}
             >
               <S.ConversationMessages ref={conversationMessagesRef}>
-                <S.UserMessageRow>
+                <S.UserMessageRow data-initial-prompt-row="true">
                   <S.UserMessageBubble>{submittedPrompt}</S.UserMessageBubble>
                 </S.UserMessageRow>
 
@@ -1781,33 +1777,26 @@ function AiHomePage() {
                     </S.UserMessageRow>
                     {isSubmittingAnalysisReport ? (
                       <>
-                        {analysisProgressStage === 'initial-loading' ? (
+                        {analysisProgressStage ? (
                           <S.AssistantMessageRow>
                             <S.AssistantAvatar aria-hidden="true">
                               <img src="/pingdom-favicon.png" alt="" />
                             </S.AssistantAvatar>
                             <S.AssistantMessageContent>
-                              <S.TypingIndicator aria-label="분석 요청을 전송하고 있습니다">
-                                <span />
-                                <span />
-                                <span />
-                              </S.TypingIndicator>
-                            </S.AssistantMessageContent>
-                          </S.AssistantMessageRow>
-                        ) : null}
-                        {analysisProgressStage === 'message' ||
-                        analysisProgressStage === 'analysis-loading' ? (
-                          <S.AssistantMessageRow>
-                            <S.AssistantAvatar aria-hidden="true">
-                              <img src="/pingdom-favicon.png" alt="" />
-                            </S.AssistantAvatar>
-                            <S.AssistantMessageContent>
-                              <S.AssistantFollowup role="status">
-                                {analysisProgressTypewriter.displayedText}
-                                {analysisProgressTypewriter.isTyping ? (
-                                  <S.TypingCursor aria-hidden="true" />
-                                ) : null}
-                              </S.AssistantFollowup>
+                              {analysisProgressStage === 'initial-loading' ? (
+                                <S.TypingIndicator aria-label="분석 요청을 전송하고 있습니다">
+                                  <span />
+                                  <span />
+                                  <span />
+                                </S.TypingIndicator>
+                              ) : (
+                                <S.AssistantFollowup role="status">
+                                  {analysisProgressTypewriter.displayedText}
+                                  {analysisProgressTypewriter.isTyping ? (
+                                    <S.TypingCursor aria-hidden="true" />
+                                  ) : null}
+                                </S.AssistantFollowup>
+                              )}
                             </S.AssistantMessageContent>
                           </S.AssistantMessageRow>
                         ) : null}

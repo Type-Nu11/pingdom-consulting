@@ -127,14 +127,13 @@ export const TimeFieldButton = styled.button`
   gap: 7px;
   align-content: center;
   padding: 14px 16px;
-  border: 1px solid ${appColors.borderSoft};
+  border: 0;
   border-radius: 16px;
   background: ${appColors.surface};
   color: ${appColors.muted};
   text-align: left;
   box-shadow: 0 8px 20px #00000008;
   transition:
-    border-color 150ms ease,
     box-shadow 150ms ease,
     transform 150ms ease;
 
@@ -156,7 +155,6 @@ export const TimeFieldButton = styled.button`
   }
 
   &[data-selected='true'] {
-    border-color: #ff19564d;
     background: linear-gradient(135deg, #fff8fa, ${appColors.surface});
   }
 
@@ -165,14 +163,9 @@ export const TimeFieldButton = styled.button`
   }
 
   &[data-active='true'] {
-    border-color: ${appColors.primary};
     box-shadow:
       0 0 0 3px #ff195614,
       0 8px 18px #ff195612;
-  }
-
-  &:hover:not(:disabled) {
-    border-color: ${appColors.primarySoft};
   }
 
   &:active:not(:disabled) {
@@ -195,7 +188,7 @@ export const TimeRangeConnector = styled.div`
   display: grid;
   place-items: center;
   justify-self: center;
-  border: 1px solid #ff19564d;
+  border: 0;
   border-radius: 50%;
   background: #fff8fa;
   color: ${appColors.primary};
@@ -280,7 +273,7 @@ export const TimeOption = styled.button`
 
 export const TimeRangeError = styled.p`
   margin: 10px 0 0;
-  color: #c8284f;
+  color: ${appColors.primary};
   font-size: 13px;
 `
 
