@@ -177,7 +177,8 @@ export const SidebarHeader = styled.div`
   min-height: 56px;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  justify-content: center;
+  padding: 0;
 `
 
 export const BrandLogo = styled.img`
