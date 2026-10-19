@@ -181,6 +181,37 @@ export const SidebarHeader = styled.div`
   padding: 0;
 `
 
+export const AccountPanel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 4px 4px;
+  border-top: 1px solid ${appColors.borderSoft};
+`
+
+export const AccountInfo = styled.div`
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  strong, span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  span { color: ${appColors.muted}; }
+`
+
+export const LogoutButton = styled.button`
+  flex-shrink: 0;
+  padding: 9px 10px;
+  border: 1px solid ${appColors.border};
+  border-radius: 9px;
+  background: ${appColors.surface};
+  color: ${appColors.muted};
+  font-size: 12px;
+  &:hover { background: ${appColors.surfaceLow}; }
+  &:focus-visible { outline: 2px solid ${appColors.primary}; outline-offset: 2px; }
+`
+
 export const BrandLogo = styled.img`
   width: 168px;
   height: auto;
@@ -498,6 +529,7 @@ export const TopBar = styled.header`
   min-height: 64px;
   display: none;
   align-items: center;
+  justify-content: space-between;
   padding: 0 24px;
 
   @media (max-width: 768px) {
