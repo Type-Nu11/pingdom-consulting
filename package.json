@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:location": "node --test tests/location.test.mjs",
+    "test:auth": "node --test tests/auth.test.mjs",
+    "test:pingcha": "node --test tests/pingcha.test.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
