@@ -9,11 +9,15 @@ import {
   type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { logout } from '../../features/auth/authApi'
+import type { AuthSession } from '../../features/auth/authSession'
 import {
   CONSULTATION_PROMPT_MAX_LENGTH,
   requestConsultationIntro,
 } from '../../features/consultation/consultationAiApi'
 import {
+  locationAnalysisReportErrorMessage,
   requestLocationAnalysisReport,
   type LocationAnalysisReport,
 } from '../../features/analysis/locationAnalysisReportApi'
@@ -154,10 +158,10 @@ function sortSessions(sessions: ConsultationSession[]) {
   )
 }
 
-function readConsultationHistory(): ConsultationHistory {
+function readConsultationHistory(userId: number): ConsultationHistory {
   try {
     const storedHistory = window.localStorage.getItem(
-      CONSULTATION_HISTORY_STORAGE_KEY,
+      `${CONSULTATION_HISTORY_STORAGE_KEY}:${userId}`,
     )
 
     if (!storedHistory) {
@@ -196,10 +200,10 @@ function readConsultationHistory(): ConsultationHistory {
   }
 }
 
-function writeConsultationHistory(history: ConsultationHistory) {
+function writeConsultationHistory(history: ConsultationHistory, userId: number) {
   try {
     window.localStorage.setItem(
-      CONSULTATION_HISTORY_STORAGE_KEY,
+      `${CONSULTATION_HISTORY_STORAGE_KEY}:${userId}`,
       JSON.stringify(history),
     )
   } catch {
@@ -402,8 +406,9 @@ function ImageIcon() {
   )
 }
 
-function AiHomePage() {
-  const [storedHistory] = useState(readConsultationHistory)
+function AiHomePage({ user }: { user: AuthSession['user'] }) {
+  const navigate = useNavigate()
+  const [storedHistory] = useState(() => readConsultationHistory(user.id))
   const [sessions, setSessions] = useState<ConsultationSession[]>(
     () => storedHistory.sessions,
   )
@@ -456,6 +461,13 @@ function AiHomePage() {
   const introRequestRef = useRef<AbortController | null>(null)
   const analysisReportRequestRef = useRef<AbortController | null>(null)
   const analysisProgressMessageTimerRef = useRef<number | null>(null)
+
+  useEffect(() => () => {
+    analysisReportRequestRef.current?.abort()
+    if (analysisProgressMessageTimerRef.current !== null) {
+      window.clearTimeout(analysisProgressMessageTimerRef.current)
+    }
+  }, [])
 
   const confirmedCategoryLabel =
     confirmedCategory === 'OTHER'
@@ -542,10 +554,10 @@ function AiHomePage() {
 
   useEffect(() => {
     if (!activeSessionId) {
-      writeConsultationHistory({
-        activeSessionId: null,
-        sessions: sessionsRef.current,
-      })
+      writeConsultationHistory(
+        { activeSessionId: null, sessions: sessionsRef.current },
+        user.id,
+      )
       return
     }
 
@@ -584,7 +596,7 @@ function AiHomePage() {
       ])
 
       sessionsRef.current = nextSessions
-      writeConsultationHistory({ activeSessionId, sessions: nextSessions })
+      writeConsultationHistory({ activeSessionId, sessions: nextSessions }, user.id)
 
       return nextSessions
     })
@@ -603,6 +615,7 @@ function AiHomePage() {
     pendingPrompt,
     selectedCategory,
     submittedPrompt,
+    user.id,
   ])
 
   useEffect(() => {
@@ -758,7 +771,7 @@ function AiHomePage() {
       }
     }
 
-    void readLocationAnalysisReport(activeSessionId)
+    void readLocationAnalysisReport(user.id, activeSessionId)
       .then((report) => {
         if (isCurrentSession) {
           setLocationAnalysisReport(report)
@@ -773,7 +786,7 @@ function AiHomePage() {
     return () => {
       isCurrentSession = false
     }
-  }, [activeSessionId])
+  }, [activeSessionId, user.id])
 
   function resetConsulting() {
     introRequestRef.current?.abort()
@@ -848,10 +861,10 @@ function AiHomePage() {
 
     sessionsRef.current = sortedSessions
     setSessions(sortedSessions)
-    writeConsultationHistory({
-      activeSessionId: nextActiveSessionId,
-      sessions: sortedSessions,
-    })
+    writeConsultationHistory(
+      { activeSessionId: nextActiveSessionId, sessions: sortedSessions },
+      user.id,
+    )
   }
 
   function handleSessionMenuToggle(
@@ -933,7 +946,7 @@ function AiHomePage() {
       ),
       isActiveSession ? null : activeSessionId,
     )
-    void deleteLocationAnalysisReport(sessionPendingDeletion.id).catch(
+    void deleteLocationAnalysisReport(user.id, sessionPendingDeletion.id).catch(
       (error: unknown) => {
         if (import.meta.env.DEV) {
           console.error('입지 분석 PDF를 삭제하지 못했습니다.', error)
@@ -1040,10 +1053,7 @@ function AiHomePage() {
     setAnalysisReportSubmissionError(null)
   }
 
-  async function handleSummaryConfirm(
-    email: string,
-    privacyConsent: true,
-  ) {
+  async function handleSummaryConfirm(privacyConsent: true) {
     if (
       !confirmedCategoryLabel ||
       !confirmedLocation ||
@@ -1080,7 +1090,7 @@ function AiHomePage() {
             confirmedTargetCustomer,
           ),
           operatingHours: `${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime}`,
-          email,
+          email: user.email,
           privacyConsent,
         },
         controller.signal,
@@ -1090,7 +1100,7 @@ function AiHomePage() {
         clearAnalysisProgressMessageTimer()
         setLocationAnalysisReport(report)
         if (activeSessionId) {
-          void saveLocationAnalysisReport(activeSessionId, report).catch(
+          void saveLocationAnalysisReport(user.id, activeSessionId, report).catch(
             (error: unknown) => {
               if (import.meta.env.DEV) {
                 console.error('입지 분석 PDF를 저장하지 못했습니다.', error)
@@ -1106,12 +1116,7 @@ function AiHomePage() {
           console.error('입지 분석 PDF 요청에 실패했습니다.', error)
         }
 
-        const apiError = error as ApiError
-        setAnalysisReportSubmissionError(
-          apiError.kind === 'timeout'
-            ? '분석 보고서 생성 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.'
-            : '분석 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
-        )
+        setAnalysisReportSubmissionError(locationAnalysisReportErrorMessage(error as ApiError))
         setIsSummaryConfirmed(false)
         setAnalysisProgressStage(null)
       }
@@ -1121,6 +1126,14 @@ function AiHomePage() {
         setIsSubmittingAnalysisReport(false)
       }
     }
+  }
+
+  function handleLogout() {
+    introRequestRef.current?.abort()
+    analysisReportRequestRef.current?.abort()
+    void logout().catch(() => {
+      navigate('/login?reason=logout-failed', { replace: true })
+    })
   }
 
   function handleLocationAnalysisReportDownload() {
@@ -1408,11 +1421,23 @@ function AiHomePage() {
             </S.HistoryList>
           ) : null}
         </S.SidebarContent>
+        <S.AccountPanel>
+          <S.AccountInfo>
+            <strong>{user.username}</strong>
+            <span>{user.email}</span>
+          </S.AccountInfo>
+          <S.LogoutButton type="button" onClick={handleLogout}>
+            로그아웃
+          </S.LogoutButton>
+        </S.AccountPanel>
       </S.Sidebar>
 
       <S.Workspace>
         <S.TopBar>
           <S.MobileBrandLogo src="/pingdom-logo.png" alt="Pingdom" />
+          <S.LogoutButton type="button" onClick={handleLogout}>
+            로그아웃
+          </S.LogoutButton>
         </S.TopBar>
 
         <S.ChatMain
@@ -1752,6 +1777,7 @@ function AiHomePage() {
                             isConfirmed={isSummaryConfirmed}
                             isSubmitting={isSubmittingAnalysisReport}
                             submissionError={analysisReportSubmissionError}
+                            accountEmail={user.email}
                             onAdditionalDetailsChange={setAdditionalDetails}
                             onCategoryChange={handleSummaryCategoryChange}
                             onLocationChange={handleSummaryLocationChange}

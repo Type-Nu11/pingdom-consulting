@@ -19,6 +19,7 @@ function openReportDatabase(): Promise<IDBDatabase> {
 }
 
 export async function readLocationAnalysisReport(
+  userId: number,
   sessionId: string,
 ): Promise<LocationAnalysisReport | null> {
   const database = await openReportDatabase()
@@ -28,7 +29,7 @@ export async function readLocationAnalysisReport(
       const request = database
         .transaction(REPORT_STORE_NAME)
         .objectStore(REPORT_STORE_NAME)
-        .get(sessionId)
+        .get(`${userId}:${sessionId}`)
 
       request.onsuccess = () =>
         resolve((request.result as LocationAnalysisReport | undefined) ?? null)
@@ -40,6 +41,7 @@ export async function readLocationAnalysisReport(
 }
 
 export async function saveLocationAnalysisReport(
+  userId: number,
   sessionId: string,
   report: LocationAnalysisReport,
 ) {
@@ -50,7 +52,7 @@ export async function saveLocationAnalysisReport(
       const request = database
         .transaction(REPORT_STORE_NAME, 'readwrite')
         .objectStore(REPORT_STORE_NAME)
-        .put(report, sessionId)
+        .put(report, `${userId}:${sessionId}`)
 
       request.onsuccess = () => resolve()
       request.onerror = () => reject(request.error)
@@ -60,7 +62,7 @@ export async function saveLocationAnalysisReport(
   }
 }
 
-export async function deleteLocationAnalysisReport(sessionId: string) {
+export async function deleteLocationAnalysisReport(userId: number, sessionId: string) {
   const database = await openReportDatabase()
 
   try {
@@ -68,7 +70,7 @@ export async function deleteLocationAnalysisReport(sessionId: string) {
       const request = database
         .transaction(REPORT_STORE_NAME, 'readwrite')
         .objectStore(REPORT_STORE_NAME)
-        .delete(sessionId)
+        .delete(`${userId}:${sessionId}`)
 
       request.onsuccess = () => resolve()
       request.onerror = () => reject(request.error)

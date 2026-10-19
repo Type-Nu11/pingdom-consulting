@@ -18,12 +18,13 @@ type ConsultationSummaryPanelProps = {
   isConfirmed: boolean
   isSubmitting: boolean
   submissionError: string | null
+  accountEmail: string
   onAdditionalDetailsChange: (value: string) => void
   onCategoryChange: (categoryLabel: string) => void
   onLocationChange: (location: LocationSelection) => void
   onTargetCustomerChange: () => void
   onOperatingHoursChange: () => void
-  onConfirm: (email: string, privacyConsent: true) => void
+  onConfirm: (privacyConsent: true) => void
 }
 
 export default function ConsultationSummaryPanel({
@@ -36,6 +37,7 @@ export default function ConsultationSummaryPanel({
   isConfirmed,
   isSubmitting,
   submissionError,
+  accountEmail,
   onAdditionalDetailsChange,
   onCategoryChange,
   onLocationChange,
@@ -49,7 +51,6 @@ export default function ConsultationSummaryPanel({
   const [draftCategory, setDraftCategory] = useState(categoryLabel)
   const [draftCustomCategory, setDraftCustomCategory] = useState('')
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
-  const [email, setEmail] = useState('')
   const [hasPrivacyConsent, setHasPrivacyConsent] = useState(false)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -63,13 +64,12 @@ export default function ConsultationSummaryPanel({
   function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const normalizedEmail = email.trim()
-    if (!normalizedEmail || !hasPrivacyConsent) {
+    if (!accountEmail.trim() || !hasPrivacyConsent) {
       return
     }
 
     setIsEmailDialogOpen(false)
-    onConfirm(normalizedEmail, true)
+    onConfirm(true)
   }
 
   function openCategoryEditor() {
@@ -289,10 +289,10 @@ export default function ConsultationSummaryPanel({
               >
                 <S.EmailDialogForm onSubmit={handleEmailSubmit}>
                   <S.EmailDialogTitle id="report-email-dialog-title">
-                    보고서 보관 이메일 입력
+                    보고서 보관 확인
                   </S.EmailDialogTitle>
                   <S.EmailDialogDescription id="report-email-dialog-description">
-                    이메일은 생성된 보고서의 보관 및 이후 조회·다운로드 요청에 사용됩니다.
+                    보고서는 로그인 계정의 이메일로 보관됩니다. 이후 같은 계정으로 조회·다운로드할 수 있습니다.
                   </S.EmailDialogDescription>
 
                   <S.EmailField>
@@ -303,9 +303,8 @@ export default function ConsultationSummaryPanel({
                       id="location-analysis-report-email"
                       type="email"
                       autoComplete="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.currentTarget.value)}
-                      placeholder="owner@example.com"
+                      value={accountEmail}
+                      readOnly
                       required
                       autoFocus
                     />
@@ -335,7 +334,7 @@ export default function ConsultationSummaryPanel({
                     <S.EmailSubmitButton
                       type="submit"
                       disabled={
-                        isSubmitting || !email.trim() || !hasPrivacyConsent
+                        isSubmitting || !accountEmail.trim() || !hasPrivacyConsent
                       }
                     >
                       분석 요청하기
