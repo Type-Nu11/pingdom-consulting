@@ -5,21 +5,21 @@ import {
   useState,
   type FormEvent,
 } from 'react'
-import { loadKakaoMaps } from '../../features/location/kakaoMapLoader'
+import { loadNaverMaps } from '../../features/location/naverMapLoader'
+import {
+  reverseNaverAddress,
+  searchNaverLocations,
+} from '../../features/location/naverLocationSearch'
 import type {
-  KakaoLatLng,
-  KakaoGeocoder,
-  KakaoMap,
-  KakaoMaps,
-  KakaoMarker,
-} from '../../features/location/kakaoMaps.types'
-import type {
-  KakaoPlace,
-  LocationSelection,
-} from '../../features/location/location.types'
+  NaverLatLng,
+  NaverMap,
+  NaverMaps,
+  NaverMarker,
+} from '../../features/location/naverMaps.types'
+import type { LocationSelection } from '../../features/location/location.types'
 import * as S from './LocationSelectionPanel.styles'
 
-const KAKAO_MAP_APP_KEY = import.meta.env.VITE_KAKAO_MAP_APP_KEY
+const NAVER_MAP_CLIENT_ID = import.meta.env.VITE_NAVER_MAP_CLIENT_ID
 const DEFAULT_MAP_CENTER = { latitude: 37.566826, longitude: 126.9786567 }
 
 type RequestState = 'idle' | 'loading' | 'success' | 'empty' | 'error'
@@ -48,15 +48,15 @@ function MapIcon() {
   )
 }
 
-function createSearchSelection(place: KakaoPlace): LocationSelection {
+function mapInteractionOptions(enabled: boolean) {
   return {
-    id: place.id,
-    displayName: place.place_name,
-    address: place.address_name,
-    roadAddress: place.road_address_name,
-    latitude: Number(place.y),
-    longitude: Number(place.x),
-    source: 'search',
+    draggable: enabled,
+    scrollWheel: enabled,
+    pinchZoom: enabled,
+    keyboardShortcuts: enabled,
+    disableDoubleClickZoom: !enabled,
+    disableDoubleTapZoom: !enabled,
+    disableTwoFingerTapZoom: !enabled,
   }
 }
 
@@ -67,7 +67,7 @@ export default function LocationSelectionPanel({
 }: LocationSelectionPanelProps) {
   const startingLocation = initialLocation ?? confirmedLocation
   const [query, setQuery] = useState(startingLocation?.displayName ?? '')
-  const [searchResults, setSearchResults] = useState<KakaoPlace[]>([])
+  const [searchResults, setSearchResults] = useState<LocationSelection[]>([])
   const [selectedLocation, setSelectedLocation] =
     useState<LocationSelection | null>(startingLocation)
   const [isMapVisible, setIsMapVisible] = useState(false)
@@ -76,12 +76,13 @@ export default function LocationSelectionPanel({
   const [searchError, setSearchError] = useState('')
   const [mapError, setMapError] = useState('')
   const mapContainerRef = useRef<HTMLDivElement>(null)
-  const mapsRef = useRef<KakaoMaps | null>(null)
-  const mapRef = useRef<KakaoMap | null>(null)
-  const selectedMarkerRef = useRef<KakaoMarker | null>(null)
-  const geocoderRef = useRef<KakaoGeocoder | null>(null)
-  const selectedLocationRef = useRef<LocationSelection | null>(null)
-  const isConfirmedRef = useRef(false)
+  const mapsRef = useRef<NaverMaps | null>(null)
+  const mapRef = useRef<NaverMap | null>(null)
+  const selectedMarkerRef = useRef<NaverMarker | null>(null)
+  const selectedLocationRef = useRef<LocationSelection | null>(startingLocation)
+  const searchRequestRef = useRef<AbortController | null>(null)
+  const addressRequestRef = useRef<AbortController | null>(null)
+  const isConfirmedRef = useRef(confirmedLocation !== null)
   const isConfirmed = confirmedLocation !== null
   const displayedLocation = confirmedLocation ?? selectedLocation
 
@@ -101,50 +102,37 @@ export default function LocationSelectionPanel({
     [],
   )
 
-  const reverseGeocode = useCallback((position: KakaoLatLng) => {
+  useEffect(() => () => {
+    searchRequestRef.current?.abort()
+    addressRequestRef.current?.abort()
+  }, [])
+
+  const reverseGeocode = useCallback((position: NaverLatLng) => {
     const maps = mapsRef.current
-    const geocoder = geocoderRef.current
-
-    if (!maps || !geocoder || isConfirmedRef.current) {
-      return
-    }
-
-    const latitude = position.getLat()
-    const longitude = position.getLng()
-
-    geocoder.coord2Address(longitude, latitude, (results, status) => {
-      if (status !== maps.services.Status.OK || !results[0]) {
-        updateSelectedLocation({
-          id: `coordinate-${latitude}-${longitude}`,
-          displayName: '지도에서 선택한 위치',
-          address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-          roadAddress: '',
-          latitude,
-          longitude,
-          source: 'map',
-        })
-        return
-      }
-
-      const result = results[0]
-      const roadAddress = result.road_address?.address_name ?? ''
-      const address = result.address?.address_name ?? ''
-      const displayName = roadAddress || address || '지도에서 선택한 위치'
-
-      updateSelectedLocation({
-        id: `coordinate-${latitude}-${longitude}`,
-        displayName,
-        address,
-        roadAddress,
-        latitude,
-        longitude,
-        source: 'map',
-      })
-      setQuery(displayName)
+    if (!maps || isConfirmedRef.current) return
+    searchRequestRef.current?.abort()
+    addressRequestRef.current?.abort()
+    const request = new AbortController()
+    addressRequestRef.current = request
+    updateSelectedLocation(null)
+    setSearchResults([])
+    setSearchState('loading')
+    setSearchError('')
+    reverseNaverAddress(maps, position, request.signal).then((location) => {
+      if (request.signal.aborted || isConfirmedRef.current) return
+      addressRequestRef.current = null
+      updateSelectedLocation(location)
+      setQuery(location.displayName)
+      setSearchState('idle')
+    }).catch((error: unknown) => {
+      if (request.signal.aborted || isConfirmedRef.current) return
+      addressRequestRef.current = null
+      setSearchState('error')
+      setSearchError(error instanceof Error ? error.message : '주소를 확인하지 못했습니다.')
     })
   }, [updateSelectedLocation])
 
-  const ensureSelectionMarker = useCallback((position: KakaoLatLng) => {
+  const ensureSelectionMarker = useCallback((position: NaverLatLng) => {
     const maps = mapsRef.current
     const map = mapRef.current
 
@@ -160,12 +148,12 @@ export default function LocationSelectionPanel({
     const marker = new maps.Marker({
       map,
       position,
-      draggable: true,
+      draggable: !isConfirmedRef.current,
       title: '선택한 위치',
     })
     selectedMarkerRef.current = marker
 
-    maps.event.addListener(marker, 'dragend', () => {
+    maps.Event.addListener(marker, 'dragend', () => {
       reverseGeocode(marker.getPosition())
     })
   }, [reverseGeocode])
@@ -181,7 +169,7 @@ export default function LocationSelectionPanel({
     const position = new maps.LatLng(location.latitude, location.longitude)
     ensureSelectionMarker(position)
     map.setCenter(position)
-    map.setLevel(3)
+    map.setZoom(16)
   }, [ensureSelectionMarker])
 
   useEffect(() => {
@@ -190,10 +178,11 @@ export default function LocationSelectionPanel({
     }
 
     let isCancelled = false
+    let resizeObserver: ResizeObserver | undefined
     setMapState('loading')
     setMapError('')
 
-    loadKakaoMaps(KAKAO_MAP_APP_KEY)
+    loadNaverMaps(NAVER_MAP_CLIENT_ID)
       .then((maps) => {
         if (isCancelled || !mapContainerRef.current) {
           return
@@ -211,29 +200,31 @@ export default function LocationSelectionPanel({
             )
         const map = new maps.Map(mapContainerRef.current, {
           center,
-          level: currentSelection ? 3 : 13,
+          zoom: currentSelection ? 16 : 7,
         })
 
         mapsRef.current = maps
         mapRef.current = map
-        geocoderRef.current = new maps.services.Geocoder()
-        map.setDraggable(!isConfirmedRef.current)
-        map.setZoomable(!isConfirmedRef.current)
+        map.setOptions(mapInteractionOptions(!isConfirmedRef.current))
 
-        maps.event.addListener(map, 'click', (event) => {
-          if (!event?.latLng || isConfirmedRef.current) {
+        maps.Event.addListener(map, 'click', (event) => {
+          if (!event?.coord || isConfirmedRef.current) {
             return
           }
 
-          ensureSelectionMarker(event.latLng)
-          reverseGeocode(event.latLng)
+          ensureSelectionMarker(event.coord)
+          reverseGeocode(event.coord)
         })
 
         if (currentSelection) {
           ensureSelectionMarker(center)
         }
 
-        window.requestAnimationFrame(() => map.relayout())
+        const container = mapContainerRef.current
+        resizeObserver = new ResizeObserver(() => {
+          map.setSize(new maps.Size(container.clientWidth, container.clientHeight))
+        })
+        resizeObserver.observe(container)
         setMapState('success')
       })
       .catch((error: unknown) => {
@@ -251,17 +242,32 @@ export default function LocationSelectionPanel({
 
     return () => {
       isCancelled = true
-      selectedMarkerRef.current?.setMap(null)
+      resizeObserver?.disconnect()
+      if (addressRequestRef.current) {
+        addressRequestRef.current.abort()
+        addressRequestRef.current = null
+        setSearchState('idle')
+      }
+      if (selectedMarkerRef.current) {
+        mapsRef.current?.Event.clearInstanceListeners(selectedMarkerRef.current)
+        selectedMarkerRef.current.setMap(null)
+      }
+      if (mapRef.current) {
+        mapsRef.current?.Event.clearInstanceListeners(mapRef.current)
+        mapRef.current.destroy()
+      }
       selectedMarkerRef.current = null
-      geocoderRef.current = null
       mapRef.current = null
       mapsRef.current = null
     }
   }, [ensureSelectionMarker, isMapVisible, reverseGeocode])
 
   useEffect(() => {
-    mapRef.current?.setDraggable(!isConfirmed)
-    mapRef.current?.setZoomable(!isConfirmed)
+    mapRef.current?.setOptions(mapInteractionOptions(!isConfirmed))
+    if (isConfirmed) {
+      searchRequestRef.current?.abort()
+      addressRequestRef.current?.abort()
+    }
     selectedMarkerRef.current?.setDraggable(!isConfirmed)
   }, [isConfirmed])
 
@@ -278,50 +284,27 @@ export default function LocationSelectionPanel({
     setSearchError('')
     setSearchResults([])
 
-    loadKakaoMaps(KAKAO_MAP_APP_KEY)
-      .then((maps) => {
-        const placesService = new maps.services.Places()
-
-        placesService.keywordSearch(
-          trimmedQuery,
-          (places, status) => {
-            if (status === maps.services.Status.OK) {
-              setSearchResults(places)
-              setSearchState('success')
-              return
-            }
-
-            if (status === maps.services.Status.ZERO_RESULT) {
-              setSearchState('empty')
-              return
-            }
-
-            setSearchState('error')
-            setSearchError('장소 검색 중 오류가 발생했습니다.')
-          },
-          {
-            size: 10,
-            sort: maps.services.SortBy.ACCURACY,
-          },
-        )
+    searchRequestRef.current?.abort()
+    addressRequestRef.current?.abort()
+    const request = new AbortController()
+    searchRequestRef.current = request
+    searchNaverLocations(trimmedQuery, NAVER_MAP_CLIENT_ID, request.signal)
+      .then((locations) => {
+        if (request.signal.aborted || isConfirmedRef.current) return
+        setSearchResults(locations)
+        setSearchState(locations.length ? 'success' : 'empty')
       })
       .catch((error: unknown) => {
+        if (request.signal.aborted || isConfirmedRef.current) return
         setSearchState('error')
-        setSearchError(
-          error instanceof Error
-            ? error.message
-            : '장소 검색을 시작하지 못했습니다.',
-        )
+        setSearchError(error instanceof Error ? error.message : '장소를 검색하지 못했습니다.')
       })
   }
 
-  function handlePlaceSelect(place: KakaoPlace) {
-    if (isConfirmed) {
-      return
-    }
-
-    const location = createSearchSelection(place)
-    setQuery(place.place_name)
+  function handlePlaceSelect(location: LocationSelection) {
+    if (isConfirmed) return
+    addressRequestRef.current?.abort()
+    setQuery(location.displayName)
     updateSelectedLocation(location)
     focusLocationOnMap(location)
   }
@@ -333,6 +316,9 @@ export default function LocationSelectionPanel({
       return
     }
 
+    isConfirmedRef.current = true
+    searchRequestRef.current?.abort()
+    addressRequestRef.current?.abort()
     setIsMapVisible(false)
     onConfirm(selectedLocation)
   }
@@ -366,9 +352,14 @@ export default function LocationSelectionPanel({
             <S.LocationSearchInput
               value={confirmedLocation?.displayName ?? query}
               onChange={(event) => {
+                searchRequestRef.current?.abort()
+                addressRequestRef.current?.abort()
                 setQuery(event.currentTarget.value)
                 updateSelectedLocation(null)
-                selectedMarkerRef.current?.setMap(null)
+                if (selectedMarkerRef.current) {
+                  mapsRef.current?.Event.clearInstanceListeners(selectedMarkerRef.current)
+                  selectedMarkerRef.current.setMap(null)
+                }
                 selectedMarkerRef.current = null
                 setSearchState('idle')
                 setSearchResults([])
@@ -388,7 +379,7 @@ export default function LocationSelectionPanel({
           </S.LocationSearchForm>
 
           {searchState === 'loading' ? (
-            <S.SearchMessage role="status">실제 장소를 검색하고 있어요.</S.SearchMessage>
+            <S.SearchMessage role="status">장소와 주소를 확인하고 있어요.</S.SearchMessage>
           ) : null}
           {searchState === 'empty' ? (
             <S.SearchMessage role="status">
@@ -414,11 +405,10 @@ export default function LocationSelectionPanel({
                     disabled={isConfirmed}
                   >
                     <S.ResultMain>
-                      <strong>{place.place_name}</strong>
-                      {place.category_name ? <span>{place.category_name}</span> : null}
+                      <strong>{place.displayName}</strong>
                     </S.ResultMain>
                     <S.ResultAddress>
-                      {place.road_address_name || place.address_name}
+                      {place.roadAddress || place.address}
                     </S.ResultAddress>
                   </S.LocationResultButton>
                 )
@@ -429,7 +419,7 @@ export default function LocationSelectionPanel({
 
         {isMapVisible ? (
           <S.MapView data-disabled={isConfirmed}>
-            <S.MapViewport ref={mapContainerRef} aria-label="Kakao 대한민국 지도" />
+            <S.MapViewport ref={mapContainerRef} aria-label="네이버 대한민국 지도" />
             {mapState === 'loading' ? (
               <S.MapOverlay role="status">지도를 불러오고 있어요.</S.MapOverlay>
             ) : null}
@@ -437,7 +427,6 @@ export default function LocationSelectionPanel({
               <S.MapOverlay role="alert">
                 <strong>지도를 표시하지 못했습니다.</strong>
                 <span>{mapError}</span>
-                <span>JavaScript 키와 등록 도메인을 확인해 주세요.</span>
               </S.MapOverlay>
             ) : null}
             {mapState === 'success' && !isConfirmed ? (
