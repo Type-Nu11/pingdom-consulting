@@ -1,7 +1,5 @@
 <img width="7680" height="4320" alt="Frame_123678" src="https://github.com/user-attachments/assets/77637e72-ba1c-4f16-8217-bfa702a743fb" />
 
----
-
 ## Overview
 
 이 저장소는 Pingdom 프로젝트의 **AI 기반 소상공인 컨설팅 웹 애플리케이션**을 관리합니다.
@@ -101,7 +99,7 @@ npm run dev
 
 기본 개발 서버는 `http://localhost:5173`에서 실행됩니다.
 
-### Configuration
+## Configuration
 
 설정에 필요한 환경 변수는 `.env` 파일에 구성합니다.
 
@@ -132,20 +130,7 @@ Client Secret은 프론트엔드 환경 변수에 넣지 않습니다. 장소명
 
 AI provider의 비밀 키는 브라우저에 노출되는 `VITE_*` 환경 변수로 관리하지 않습니다.
 
-## Verification
-
-저장소 변경사항은 다음 방법으로 검증합니다.
-
-| Verification | Purpose |
-|---|---|
-| `npm run lint` | ESLint 기반 코드 검사 |
-| `npm run build` | TypeScript 타입 검사 및 프로덕션 빌드 검증 |
-| `npm run test:location` | 네이버 SDK 로딩·좌표/응답 검증·검색 장애·요청 취소 검사 (대역 사용) |
-| `npm run test:auth` | 로그인·PDF 인증·동시 토큰 갱신·로그아웃 회귀 검사 (HTTP 대역 사용) |
-| `npm run test:pingcha` | 브라우저 검증 상태·iframe 출처·개발 프록시 Origin 검사 (대역 사용) |
-| `npm run preview` | 빌드 결과물 로컬 미리보기 |
-
-## Authentication
+### Authentication
 
 로그인은 `POST /auth/login`을 사용합니다. Access Token과 계정 정보는 탭 단위
 `sessionStorage`에 저장하며 비밀번호와 Refresh Token은 JavaScript 저장소에 보관하지 않습니다.
@@ -160,6 +145,19 @@ credential 허용 CORS 설정이 필요합니다. Vite 개발 프록시는 `/aut
 화면 참고: [데스크톱 로그인](docs/screenshots/consulting-login-desktop.jpg),
 [모바일 로그인](docs/screenshots/consulting-login-mobile.jpg),
 [브라우저 검증](docs/screenshots/consulting-login-verification.png).
+
+## Verification
+
+저장소 변경사항은 다음 방법으로 검증합니다.
+
+| Verification | Purpose |
+|---|---|
+| `npm run lint` | ESLint 기반 코드 검사 |
+| `npm run build` | TypeScript 타입 검사 및 프로덕션 빌드 검증 |
+| `npm run test:location` | 네이버 SDK 로딩·좌표/응답 검증·검색 장애·요청 취소 검사 (대역 사용) |
+| `npm run test:auth` | 로그인·PDF 인증·동시 토큰 갱신·로그아웃 회귀 검사 (HTTP 대역 사용) |
+| `npm run test:pingcha` | 브라우저 검증 상태·iframe 출처·개발 프록시 Origin 검사 (대역 사용) |
+| `npm run preview` | 빌드 결과물 로컬 미리보기 |
 
 ## Repository Structure
 
@@ -185,6 +183,22 @@ credential 허용 CORS 설정이 필요합니다. Vite 개발 프록시는 `/aut
 └── README.md
 ```
 
+## Related Repositories
+
+| Repository | Relationship |
+|---|---|
+| [pingdom-api](https://github.com/Type-Nu11/pingdom-api) | 인증 및 서비스 API 제공 |
+| [pingdom-app](https://github.com/Type-Nu11/pingdom-app) | 사용자·사업자 모바일 애플리케이션 |
+| [pingdom-infra](https://github.com/Type-Nu11/pingdom-infra) | 서비스 요청 라우팅과 프록시 구성 |
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Desktop Login](docs/screenshots/consulting-login-desktop.jpg) | 데스크톱 로그인 화면 |
+| [Mobile Login](docs/screenshots/consulting-login-mobile.jpg) | 모바일 로그인 화면 |
+| [Browser Verification](docs/screenshots/consulting-login-verification.png) | 브라우저 검증 화면 |
+
 ## Release and Compatibility
 
 현재 버전은 GA(General Availability) 단계입니다.
@@ -193,9 +207,14 @@ credential 허용 CORS 설정이 필요합니다. Vite 개발 프록시는 `/aut
 
 변경사항은 저장소의 Release 또는 변경 이력을 기준으로 확인합니다.
 
+## License
+
+이 저장소에는 별도의 프로젝트 `LICENSE` 파일이 없습니다. 사용 및 배포 조건은 관리 팀에 확인하세요.
+
+---
 
 <div align="center">
 
-Part of Pingdom
+Part of **Pingdom**
 
 </div>
