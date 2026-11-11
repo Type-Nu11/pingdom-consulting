@@ -7,6 +7,23 @@ import react from '@vitejs/plugin-react'
 import { chromium } from 'playwright'
 
 const output = await mkdtemp(join(tmpdir(), 'consultation-71-'))
+async function assertLayout(page, stage) {
+  await page.clock.runFor(1500)
+  const overflow = await page.evaluate(() => {
+    const issues = []
+    if (document.documentElement.scrollWidth > innerWidth + 1) issues.push('document overflow')
+    const root = document.querySelector('[role="dialog"][aria-modal="true"]') ?? document.body
+    for (const element of [root, ...root.querySelectorAll('*')]) {
+      const rect = element.getBoundingClientRect(), style = getComputedStyle(element)
+      if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= innerHeight || style.visibility === 'hidden' || style.opacity === '0' || element.closest('[aria-hidden="true"]')) continue
+      const label = `${element.tagName} ${element.getAttribute('aria-label') ?? element.getAttribute('role') ?? ''}`
+      if (rect.left < -1 || rect.right > innerWidth + 1) issues.push(`${label}: outside viewport`)
+      if (element.children.length && ['auto', 'scroll'].includes(style.overflowX) && element.scrollWidth > element.clientWidth + 1) issues.push(`${label}: horizontal scroll`)
+    }
+    return issues.slice(0, 15)
+  })
+  assert.deepEqual(overflow, [], `${stage}: layout overflow`)
+}
 const server = await createServer({ configFile: false, envDir: false, plugins: [react(), {
   name: 'synthetic-consultation', enforce: 'pre',
   resolveId(source) { if (/\/location\/naver(MapLoader|LocationSearch)$/.test(source)) return resolve('tests/browser/location-fixture.js') },
@@ -52,20 +69,28 @@ try {
     await page.getByRole('textbox', { name: 'AI 질문 입력' }).fill('합성 카페 상담')
     await page.getByRole('textbox', { name: 'AI 질문 입력' }).press('Enter')
     await advance()
+    await assertLayout(page, 'category')
     await click('카페')
     await click('선택하기')
     await advance()
+    await page.getByRole('textbox', { name: '희망 장소 검색' }).waitFor()
+    await assertLayout(page, 'location')
     await page.getByRole('textbox', { name: '희망 장소 검색' }).fill('합성 장소')
     await click('장소 검색')
     await page.getByRole('button').filter({ hasText: '합성 장소' }).click()
     await click('이 장소로 선택')
     await advance()
+    await page.getByRole('button', { name: '이 고객층으로 선택', exact: true }).waitFor()
+    await assertLayout(page, 'customers')
     await click('20대'); await click('내국인'); await click('이 고객층으로 선택')
     await advance()
+    await page.getByRole('button', { name: '이 시간대로 선택', exact: true }).waitFor()
+    await assertLayout(page, 'operating hours')
     await page.getByRole('button', { name: /^시작/ }).click(); await click('09:00')
     await click('18:00')
     await click('이 시간대로 선택'); await advance()
     await page.getByRole('heading', { name: '상담 정보 확인' }).waitFor()
+    await assertLayout(page, 'summary initial')
     const conversationScrollTop = () => page.getByRole('heading', { name: '상담 정보 확인' }).evaluate(element => {
       let container = element.parentElement
       while (container && getComputedStyle(container).overflowY !== 'auto') container = container.parentElement
@@ -89,11 +114,13 @@ try {
     assert.equal(edited.confirmedLocation.displayName, '합성 장소')
     assert.deepEqual(edited.confirmedTargetCustomer.ageGroups, ['20대'])
     assert.equal(edited.confirmedOperatingHours.startTime, '09:00')
+    await assertLayout(page, 'summary')
     await page.screenshot({ path: join(output, `summary-${width}.png`) })
     const requestReport = async (consentWasRetained = false) => {
       const previous = await page.evaluate(() => window.qa.requests.filter(item => item.url === '/analysis/reports/location').length)
       await click('이 정보로 분석 요청')
       const dialog = page.getByRole('dialog', { name: '보고서 보관 확인' })
+      await assertLayout(page, 'report consent dialog')
       assert.equal(await dialog.getByRole('textbox', { name: '이메일', exact: true }).inputValue(), 'synthetic-901@example.test')
       assert.equal(await dialog.getByRole('checkbox').isChecked(), consentWasRetained)
       assert.equal(await dialog.getByRole('button', { name: '분석 요청하기' }).isDisabled(), !(await dialog.getByRole('checkbox').isChecked()))
@@ -109,11 +136,13 @@ try {
     await page.evaluate(() => { window.qa.mode = 'failure' })
     await requestReport(); await advance()
     await page.getByRole('alert').waitFor()
+    await assertLayout(page, 'report error')
     assert.equal((await history()).sessions[0].confirmedLocation.displayName, '합성 장소')
     await page.evaluate(() => { window.qa.mode = 'success' })
     await requestReport(true); await advance()
     const pdf = page.getByRole('button', { name: /다운로드/ })
     await pdf.waitFor()
+    await assertLayout(page, 'report success')
     const download = page.waitForEvent('download'); await pdf.click()
     assert.equal((await download).suggestedFilename(), 'synthetic.pdf')
     await page.reload(); await advance()
