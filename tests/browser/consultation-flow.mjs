@@ -66,6 +66,19 @@ try {
     await click('18:00')
     await click('이 시간대로 선택'); await advance()
     await page.getByRole('heading', { name: '상담 정보 확인' }).waitFor()
+    const conversationScrollTop = () => page.getByRole('heading', { name: '상담 정보 확인' }).evaluate(element => {
+      let container = element.parentElement
+      while (container && getComputedStyle(container).overflowY !== 'auto') container = container.parentElement
+      return container?.scrollTop ?? 0
+    })
+    const beforeWheel = await conversationScrollTop()
+    await page.mouse.move(width > 768 ? (width + 256) / 2 : width / 2, height / 2)
+    await page.mouse.wheel(0, beforeWheel > 1 ? -250 : 250)
+    await page.waitForFunction(before => [...document.querySelectorAll('main *')].some(element =>
+      getComputedStyle(element).overflowY === 'auto' && element.scrollHeight > element.clientHeight && element.scrollTop !== before,
+    ), beforeWheel)
+    assert.notEqual(await conversationScrollTop(), beforeWheel, 'conversation remains vertically scrollable')
+    assert.equal(await page.locator('main').evaluate(element => element.scrollLeft), 0)
     await page.getByRole('button', { name: '수정', exact: true }).first().click()
     const categoryEditor = page.locator('[aria-label="가게 업종 수정"]')
     await categoryEditor.getByRole('button', { name: '음식점', exact: true }).click()
