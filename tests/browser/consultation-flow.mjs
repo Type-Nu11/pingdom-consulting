@@ -78,12 +78,20 @@ try {
     assert.equal(edited.confirmedOperatingHours.startTime, '09:00')
     await page.screenshot({ path: join(output, `summary-${width}.png`) })
     const requestReport = async (consentWasRetained = false) => {
+      const previous = await page.evaluate(() => window.qa.requests.filter(item => item.url === '/analysis/reports/location').length)
       await click('이 정보로 분석 요청')
       const dialog = page.getByRole('dialog', { name: '보고서 보관 확인' })
+      assert.equal(await dialog.getByRole('textbox', { name: '이메일', exact: true }).inputValue(), 'synthetic-901@example.test')
       assert.equal(await dialog.getByRole('checkbox').isChecked(), consentWasRetained)
       assert.equal(await dialog.getByRole('button', { name: '분석 요청하기' }).isDisabled(), !(await dialog.getByRole('checkbox').isChecked()))
       await dialog.getByRole('checkbox').check()
       await dialog.getByRole('button', { name: '분석 요청하기' }).click()
+      await page.waitForFunction(previous => window.qa.requests.filter(item => item.url === '/analysis/reports/location').length > previous, previous)
+      const body = await page.evaluate(() => JSON.parse(window.qa.requests.filter(item => item.url === '/analysis/reports/location').at(-1).data))
+      assert.deepEqual(body, {
+        region: '합성 주소', category: '음식점', targetCustomerGroup: '20대 내국인',
+        operatingHours: '평일 09:00~18:00', email: 'synthetic-901@example.test', privacyConsent: true,
+      }, 'report request must match selected conditions and the authenticated account')
     }
     await page.evaluate(() => { window.qa.mode = 'failure' })
     await requestReport(); await advance()
