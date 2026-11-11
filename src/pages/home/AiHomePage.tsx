@@ -39,7 +39,17 @@ import {
   STORE_CATEGORY_LABELS,
   type StoreCategoryCode,
 } from '../../features/consultation/model/consultationOptions'
-import type { ConsultationSession, ConsultationHistory } from '../../features/consultation/model/consultation.types'
+import type { ConsultationSession } from '../../features/consultation/model/consultation.types'
+import {
+  createSessionTitle,
+  formatSessionPreview,
+  formatTargetCustomerGroup,
+  sortSessions,
+} from '../../features/consultation/model/consultationHistory'
+import {
+  readConsultationHistory,
+  writeConsultationHistory,
+} from '../../features/consultation/storage/consultationHistoryStorage'
 import * as S from './AiHomePage.styles'
 
 const CATEGORY_ASSISTANT_FALLBACK =
@@ -58,8 +68,6 @@ const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
 const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
 const ANALYSIS_PROGRESS_MESSAGE_GAP_MS = 450
 const CONVERSATION_TRANSITION_DELAY = 480
-const CONSULTATION_HISTORY_STORAGE_KEY = 'pingdom-ai-consultation-history-v1'
-const SESSION_TITLE_PREVIEW_LENGTH = 11
 const STARTER_PROMPTS = [
   '수원역 근처에 브런치 카페를 열고 싶어요.',
   '직장인이 많이 찾는 점심 식당 입지를 추천해 주세요.',
@@ -74,105 +82,6 @@ type AnalysisProgressStage =
 
 function createSessionId() {
   return crypto.randomUUID()
-}
-
-function createSessionTitle(prompt: string) {
-  const normalizedPrompt = prompt.replace(/\s+/g, ' ').trim()
-
-  return normalizedPrompt
-}
-
-function formatSessionPreview(title: string) {
-  const characters = Array.from(title)
-
-  return characters.length > SESSION_TITLE_PREVIEW_LENGTH
-    ? `${characters.slice(0, SESSION_TITLE_PREVIEW_LENGTH).join('')}...`
-    : title
-}
-
-function formatTargetCustomerGroup(customer: TargetCustomerSelection) {
-  const ages = customer.ageGroups
-    .map((ageGroup) => Number.parseInt(ageGroup, 10))
-    .sort((left, right) => left - right)
-  const ageRanges: string[] = []
-
-  for (let startIndex = 0; startIndex < ages.length; ) {
-    let endIndex = startIndex
-
-    while (ages[endIndex + 1] === ages[endIndex] + 10) {
-      endIndex += 1
-    }
-
-    const startAge = ages[startIndex]
-    const endAge = ages[endIndex]
-    ageRanges.push(
-      startAge === endAge ? `${startAge}대` : `${startAge}~${endAge}대`,
-    )
-    startIndex = endIndex + 1
-  }
-
-  return `${ageRanges.join(', ')} ${customer.nationality}`
-}
-
-function sortSessions(sessions: ConsultationSession[]) {
-  return [...sessions].sort(
-    (left, right) =>
-      Number(Boolean(right.isPinned)) - Number(Boolean(left.isPinned)) ||
-      right.updatedAt - left.updatedAt,
-  )
-}
-
-function readConsultationHistory(userId: number): ConsultationHistory {
-  try {
-    const storedHistory = window.localStorage.getItem(
-      `${CONSULTATION_HISTORY_STORAGE_KEY}:${userId}`,
-    )
-
-    if (!storedHistory) {
-      return { activeSessionId: null, sessions: [] }
-    }
-
-    const parsedHistory: unknown = JSON.parse(storedHistory)
-
-    if (
-      !parsedHistory ||
-      typeof parsedHistory !== 'object' ||
-      !Array.isArray((parsedHistory as ConsultationHistory).sessions)
-    ) {
-      return { activeSessionId: null, sessions: [] }
-    }
-
-    const sessions = (parsedHistory as ConsultationHistory).sessions.filter(
-      (session): session is ConsultationSession =>
-        typeof session?.id === 'string' &&
-        typeof session.title === 'string' &&
-        typeof session.createdAt === 'number' &&
-        typeof session.updatedAt === 'number' &&
-        (typeof session.submittedPrompt === 'string' ||
-          session.submittedPrompt === null),
-    )
-
-    return {
-      activeSessionId:
-        typeof (parsedHistory as ConsultationHistory).activeSessionId === 'string'
-          ? (parsedHistory as ConsultationHistory).activeSessionId
-          : null,
-      sessions,
-    }
-  } catch {
-    return { activeSessionId: null, sessions: [] }
-  }
-}
-
-function writeConsultationHistory(history: ConsultationHistory, userId: number) {
-  try {
-    window.localStorage.setItem(
-      `${CONSULTATION_HISTORY_STORAGE_KEY}:${userId}`,
-      JSON.stringify(history),
-    )
-  } catch {
-    // 브라우저 저장소를 사용할 수 없는 환경에서는 현재 대화만 유지한다.
-  }
 }
 
 function useTypewriter(
