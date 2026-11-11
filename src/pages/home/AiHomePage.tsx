@@ -31,24 +31,16 @@ import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
 import OperatingHoursPanel from './OperatingHoursPanel'
-import type { OperatingHours } from './operatingHours.types'
+import type { OperatingHours } from '../../features/consultation/model/operatingHours.types'
 import TargetCustomerPanel from './TargetCustomerPanel'
-import type { TargetCustomerSelection } from './targetCustomerOptions'
+import type { TargetCustomerSelection } from '../../features/consultation/model/targetCustomerOptions'
+import {
+  STORE_CATEGORIES,
+  STORE_CATEGORY_LABELS,
+  type StoreCategoryCode,
+} from '../../features/consultation/model/consultationOptions'
+import type { ConsultationSession, ConsultationHistory } from '../../features/consultation/model/consultation.types'
 import * as S from './AiHomePage.styles'
-
-const STORE_CATEGORIES = [
-  { code: 'RESTAURANT', label: '음식점' },
-  { code: 'MUSIC', label: '음악' },
-  { code: 'POP_UP', label: '팝업' },
-  { code: 'FASHION', label: '패션' },
-  { code: 'BEAUTY', label: '뷰티' },
-  { code: 'EXHIBITION', label: '전시' },
-  { code: 'CAFE', label: '카페' },
-  { code: 'CULTURAL_HERITAGE', label: '문화재' },
-  { code: 'OTHER', label: '기타' },
-] as const
-
-const STORE_CATEGORY_LABELS = STORE_CATEGORIES.map(({ label }) => label)
 
 const CATEGORY_ASSISTANT_FALLBACK =
   '말씀해주신 가게를 준비하고 계시는군요. 정확한 분석을 위해 아래 카테고리 중 가장 가까운 업종을 선택해 주세요.'
@@ -74,39 +66,11 @@ const STARTER_PROMPTS = [
   '20대가 많이 찾는 팝업스토어 위치를 찾고 싶어요.',
 ] as const
 
-type StoreCategoryCode = (typeof STORE_CATEGORIES)[number]['code']
-
 type AnalysisProgressStage =
   | 'initial-loading'
   | 'message'
   | 'analysis-loading'
   | null
-
-type ConsultationSession = {
-  id: string
-  title: string
-  isPinned: boolean
-  createdAt: number
-  updatedAt: number
-  pendingPrompt: string | null
-  submittedPrompt: string | null
-  assistantMessage: string | null
-  selectedCategory: StoreCategoryCode | null
-  confirmedCategory: StoreCategoryCode | null
-  customCategory: string
-  confirmedCustomCategory: string
-  confirmedLocation: LocationSelection | null
-  confirmedTargetCustomer: TargetCustomerSelection | null
-  confirmedOperatingHours: OperatingHours | null
-  additionalDetails: string
-  confirmedAdditionalDetails: string
-  isSummaryConfirmed: boolean
-}
-
-type ConsultationHistory = {
-  activeSessionId: string | null
-  sessions: ConsultationSession[]
-}
 
 function createSessionId() {
   return crypto.randomUUID()

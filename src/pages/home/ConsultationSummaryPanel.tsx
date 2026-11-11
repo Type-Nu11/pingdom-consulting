@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import type { LocationSelection } from '../../features/location/location.types'
-import type { OperatingHours } from './operatingHours.types'
-import type { TargetCustomerSelection } from './targetCustomerOptions'
+import type { OperatingHours } from '../../features/consultation/model/operatingHours.types'
+import type { TargetCustomerSelection } from '../../features/consultation/model/targetCustomerOptions'
 import LocationSelectionPanel from './LocationSelectionPanel'
 import * as S from './ConsultationSummaryPanel.styles'
 
