@@ -5,8 +5,13 @@ import { Router } from '../../src/app/router/Router'
 import { GlobalStyle } from '../../src/styles/globalStyle'
 import { apiClient } from '../../src/features/api/apiClient'
 import { saveAuthSession } from '../../src/features/auth/authSession'
+import { readLocationAnalysisReport, saveLocationAnalysisReport } from '../../src/features/analysis/locationAnalysisReportStorage'
 
 window.qa = { requests: [], unexpected: [], mode: 'success', release: null }
+window.qa.hasReport = async (userId, sessionId) => Boolean(await readLocationAnalysisReport(userId, sessionId))
+window.qa.seedReport = (userId, sessionId, filename) => saveLocationAnalysisReport(userId, sessionId, {
+  pdf: new Blob(['%PDF-1.4\nsynthetic-only\n%%EOF'], { type: 'application/pdf' }), filename,
+})
 window.qa.account = (id) => saveAuthSession({ accessToken: 'synthetic-only', user: { id, username: `synthetic-${id}`, email: `synthetic-${id}@example.test` } })
 apiClient.defaults.adapter = async config => {
   window.qa.requests.push({ url: config.url, data: config.data })

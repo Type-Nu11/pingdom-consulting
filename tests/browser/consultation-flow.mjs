@@ -199,6 +199,60 @@ try {
     console.log(`PASS ${width}x${height}: flow, consent, retry, PDF restoration/download, account isolation`)
     await context.close()
   }
+  const deletionContext = await browser.newContext({ viewport: { width: 1366, height: 768 } })
+  page = await deletionContext.newPage()
+  page.setDefaultTimeout(15000)
+  const deletionErrors = []
+  page.on('pageerror', error => deletionErrors.push(error.message))
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url())
+    return url.origin === base && !url.pathname.startsWith('/api') ? route.continue() : route.abort()
+  })
+  const legacy = JSON.parse(await readFile(new URL('../fixtures/consultation-history-v1.json', import.meta.url), 'utf8'))
+  const first = legacy.sessions[0]
+  const second = { ...first, id: 'report-second', title: '두 번째 합성 상담' }
+  await page.addInitScript(seed => localStorage.setItem('pingdom-ai-consultation-history-v1:901', JSON.stringify(seed)), {
+    activeSessionId: first.id, sessions: [first, second],
+  })
+  await page.goto(base)
+  await page.getByRole('button', { name: first.title, exact: true }).waitFor()
+  await page.evaluate(async () => {
+    await window.qa.seedReport(901, 'legacy-cafe', 'first.pdf')
+    await window.qa.seedReport(901, 'report-second', 'second.pdf')
+  })
+  await page.getByRole('button', { name: first.title, exact: true }).click()
+  const restoredReport = page.getByRole('button', { name: /다운로드/ })
+  await restoredReport.waitFor()
+  await page.getByRole('button', { name: second.title, exact: true }).click()
+  await page.getByRole('button', { name: first.title, exact: true }).click()
+  await page.getByRole('button', { name: second.title, exact: true }).click()
+  await restoredReport.waitFor()
+  const secondDownload = page.waitForEvent('download')
+  await restoredReport.click()
+  assert.equal((await secondDownload).suggestedFilename(), 'second.pdf')
+  const openDeletion = async title => {
+    const menu = page.getByRole('button', { name: `${title} 메뉴`, exact: true })
+    await menu.focus(); await menu.press('Enter')
+    await page.getByRole('menuitem', { name: '삭제', exact: true }).click()
+  }
+  await openDeletion(first.title)
+  await page.getByRole('dialog', { name: '채팅을 삭제할까요?' }).getByRole('button', { name: '취소', exact: true }).click()
+  assert.equal(await page.evaluate(() => window.qa.hasReport(901, 'legacy-cafe')), true)
+  await openDeletion(first.title)
+  await page.getByRole('dialog', { name: '채팅을 삭제할까요?' }).getByRole('button', { name: '삭제', exact: true }).click()
+  await page.waitForFunction(async () => !(await window.qa.hasReport(901, 'legacy-cafe')))
+  assert.equal(await page.evaluate(() => window.qa.hasReport(901, 'report-second')), true)
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pingdom-ai-consultation-history-v1:901')).activeSessionId), second.id)
+  await restoredReport.waitFor()
+  await openDeletion(second.title)
+  await page.getByRole('dialog', { name: '채팅을 삭제할까요?' }).getByRole('button', { name: '삭제', exact: true }).click()
+  await page.waitForFunction(async () => !(await window.qa.hasReport(901, 'report-second')))
+  await page.getByRole('textbox', { name: 'AI 질문 입력' }).waitFor()
+  assert.equal(await restoredReport.count(), 0)
+  assert.equal(await page.evaluate(() => window.qa.requests.length), 0)
+  assert.deepEqual(deletionErrors, [])
+  console.log('PASS actual page: legacy selection, nonactive/active PDF deletion and cancellation')
+  await deletionContext.close()
   for (const mode of ['corrupt', 'blocked']) {
     const context = await browser.newContext()
     const testPage = await context.newPage()
