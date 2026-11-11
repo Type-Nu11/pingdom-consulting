@@ -6,7 +6,6 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -41,15 +40,10 @@ import {
 } from '../../features/consultation/model/consultationOptions'
 import type { ConsultationSession } from '../../features/consultation/model/consultation.types'
 import {
-  createSessionTitle,
   formatSessionPreview,
   formatTargetCustomerGroup,
-  sortSessions,
 } from '../../features/consultation/model/consultationHistory'
-import {
-  readConsultationHistory,
-  writeConsultationHistory,
-} from '../../features/consultation/storage/consultationHistoryStorage'
+import { useConsultationHistory } from '../../features/consultation/hooks/useConsultationHistory'
 import * as S from './AiHomePage.styles'
 
 const CATEGORY_ASSISTANT_FALLBACK =
@@ -79,10 +73,6 @@ type AnalysisProgressStage =
   | 'message'
   | 'analysis-loading'
   | null
-
-function createSessionId() {
-  return crypto.randomUUID()
-}
 
 function useTypewriter(
   fullText: string | null,
@@ -281,22 +271,7 @@ function ImageIcon() {
 
 function AiHomePage({ user }: { user: AuthSession['user'] }) {
   const navigate = useNavigate()
-  const [storedHistory] = useState(() => readConsultationHistory(user.id))
-  const [sessions, setSessions] = useState<ConsultationSession[]>(
-    () => storedHistory.sessions,
-  )
-  const sessionsRef = useRef<ConsultationSession[]>(storedHistory.sessions)
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isRestoredSession, setIsRestoredSession] = useState(false)
-  const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(
-    null,
-  )
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(
-    null,
-  )
-  const [editingSessionTitle, setEditingSessionTitle] = useState('')
-  const [sessionPendingDeletion, setSessionPendingDeletion] =
-    useState<ConsultationSession | null>(null)
   const [prompt, setPrompt] = useState('')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
   const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(null)
@@ -333,6 +308,24 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   const introRequestRef = useRef<AbortController | null>(null)
   const analysisReportRequestRef = useRef<AbortController | null>(null)
   const analysisProgressMessageTimerRef = useRef<number | null>(null)
+
+  const {
+    sessions, activeSessionId, pinnedSessions, unpinnedSessions, openSessionMenuId,
+    editingSessionId, editingSessionTitle, setEditingSessionTitle, sessionPendingDeletion,
+    beginSession, startNewConsultation, selectSession: handleSessionSelect, toggleSessionMenu,
+    startSessionRename, cancelSessionRename, submitSessionRename, pinSession, requestSessionDeletion,
+    cancelSessionDeletion, confirmSessionDeletion: handleSessionDeleteConfirm,
+  } = useConsultationHistory({
+    userId: user.id,
+    draft: {
+      pendingPrompt, submittedPrompt, assistantMessage, selectedCategory, confirmedCategory,
+      customCategory, confirmedCustomCategory, confirmedLocation, confirmedTargetCustomer,
+      confirmedOperatingHours, additionalDetails, confirmedAdditionalDetails, isSummaryConfirmed,
+    },
+    onRestore: restoreSession,
+    onReset: resetConsulting,
+    onDeleteReport: removeSessionReport,
+  })
 
   useEffect(() => () => {
     analysisReportRequestRef.current?.abort()
@@ -421,75 +414,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     initialTypewriter.isComplete,
     isRestoredSession,
   )
-  const pinnedSessions = sessions.filter((session) => session.isPinned)
-  const unpinnedSessions = sessions.filter((session) => !session.isPinned)
-
-  useEffect(() => {
-    if (!activeSessionId) {
-      writeConsultationHistory(
-        { activeSessionId: null, sessions: sessionsRef.current },
-        user.id,
-      )
-      return
-    }
-
-    const activeSession: ConsultationSession = {
-      id: activeSessionId,
-      title:
-        sessionsRef.current.find((session) => session.id === activeSessionId)
-          ?.title ?? createSessionTitle(submittedPrompt ?? pendingPrompt ?? '새 상담'),
-      isPinned:
-        sessionsRef.current.find((session) => session.id === activeSessionId)
-          ?.isPinned ?? false,
-      createdAt:
-        sessionsRef.current.find((session) => session.id === activeSessionId)
-          ?.createdAt ??
-        Date.now(),
-      updatedAt: Date.now(),
-      pendingPrompt,
-      submittedPrompt,
-      assistantMessage,
-      selectedCategory,
-      confirmedCategory,
-      customCategory,
-      confirmedCustomCategory,
-      confirmedLocation,
-      confirmedTargetCustomer,
-      confirmedOperatingHours,
-      additionalDetails,
-      confirmedAdditionalDetails,
-      isSummaryConfirmed,
-    }
-
-    setSessions((currentSessions) => {
-      const nextSessions = sortSessions([
-        activeSession,
-        ...currentSessions.filter((session) => session.id !== activeSessionId),
-      ])
-
-      sessionsRef.current = nextSessions
-      writeConsultationHistory({ activeSessionId, sessions: nextSessions }, user.id)
-
-      return nextSessions
-    })
-  }, [
-    activeSessionId,
-    additionalDetails,
-    assistantMessage,
-    confirmedAdditionalDetails,
-    confirmedCategory,
-    confirmedCustomCategory,
-    confirmedLocation,
-    confirmedOperatingHours,
-    confirmedTargetCustomer,
-    customCategory,
-    isSummaryConfirmed,
-    pendingPrompt,
-    selectedCategory,
-    submittedPrompt,
-    user.id,
-  ])
-
   useEffect(() => {
     if (!pendingPrompt) {
       return
@@ -666,7 +590,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     introRequestRef.current?.abort()
     analysisReportRequestRef.current?.abort()
     clearAnalysisProgressMessageTimer()
-    setActiveSessionId(null)
     setIsRestoredSession(false)
     setPrompt('')
     setPendingPrompt(null)
@@ -717,121 +640,12 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setIsPromptExpanded(false)
   }
 
-  function handleSessionSelect(session: ConsultationSession) {
-    if (session.id === activeSessionId) {
-      return
-    }
-
-    restoreSession(session)
-    setActiveSessionId(session.id)
-    setOpenSessionMenuId(null)
-  }
-
-  function saveSessions(
-    nextSessions: ConsultationSession[],
-    nextActiveSessionId = activeSessionId,
-  ) {
-    const sortedSessions = sortSessions(nextSessions)
-
-    sessionsRef.current = sortedSessions
-    setSessions(sortedSessions)
-    writeConsultationHistory(
-      { activeSessionId: nextActiveSessionId, sessions: sortedSessions },
-      user.id,
-    )
-  }
-
-  function handleSessionMenuToggle(
-    event: ReactMouseEvent<HTMLButtonElement>,
-    sessionId: string,
-  ) {
-    event.stopPropagation()
-    setOpenSessionMenuId((currentId) =>
-      currentId === sessionId ? null : sessionId,
-    )
-  }
-
-  function handleSessionRenameStart(
-    event: ReactMouseEvent<HTMLButtonElement>,
-    session: ConsultationSession,
-  ) {
-    event.stopPropagation()
-    setEditingSessionId(session.id)
-    setEditingSessionTitle(session.title)
-    setOpenSessionMenuId(null)
-  }
-
-  function handleSessionRenameSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    const nextTitle = editingSessionTitle.trim()
-
-    if (!editingSessionId || !nextTitle) {
-      return
-    }
-
-    saveSessions(
-      sessionsRef.current.map((session) =>
-        session.id === editingSessionId
-          ? { ...session, title: nextTitle }
-          : session,
-      ),
-    )
-    setEditingSessionId(null)
-    setEditingSessionTitle('')
-  }
-
-  function handleSessionPin(
-    event: ReactMouseEvent<HTMLButtonElement>,
-    sessionId: string,
-  ) {
-    event.stopPropagation()
-    saveSessions(
-      sessionsRef.current.map((session) =>
-        session.id === sessionId
-          ? { ...session, isPinned: !session.isPinned }
-          : session,
-      ),
-    )
-    setOpenSessionMenuId(null)
-  }
-
-  function handleSessionDelete(
-    event: ReactMouseEvent<HTMLButtonElement>,
-    sessionId: string,
-  ) {
-    event.stopPropagation()
-
-    setSessionPendingDeletion(
-      sessionsRef.current.find((session) => session.id === sessionId) ?? null,
-    )
-    setOpenSessionMenuId(null)
-  }
-
-  function handleSessionDeleteConfirm() {
-    if (!sessionPendingDeletion) {
-      return
-    }
-
-    const isActiveSession = activeSessionId === sessionPendingDeletion.id
-    saveSessions(
-      sessionsRef.current.filter(
-        (session) => session.id !== sessionPendingDeletion.id,
-      ),
-      isActiveSession ? null : activeSessionId,
-    )
-    void deleteLocationAnalysisReport(user.id, sessionPendingDeletion.id).catch(
+  function removeSessionReport(sessionId: string) {
+    void deleteLocationAnalysisReport(user.id, sessionId).catch(
       (error: unknown) => {
-        if (import.meta.env.DEV) {
-          console.error('입지 분석 PDF를 삭제하지 못했습니다.', error)
-        }
+        if (import.meta.env.DEV) console.error('입지 분석 PDF를 삭제하지 못했습니다.', error)
       },
     )
-    setSessionPendingDeletion(null)
-
-    if (isActiveSession) {
-      resetConsulting()
-    }
   }
 
   function handleConversationGutterWheel(
@@ -859,7 +673,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
       return
     }
 
-    setActiveSessionId(createSessionId())
+    beginSession()
     setIsRestoredSession(false)
     setPendingPrompt(trimmedPrompt)
     setPrompt('')
@@ -1193,7 +1007,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     return sessionItems.map((session) => (
       <S.HistoryItem key={session.id} data-active={session.id === activeSessionId}>
         {editingSessionId === session.id ? (
-          <S.HistoryRenameForm onSubmit={handleSessionRenameSubmit}>
+          <S.HistoryRenameForm onSubmit={(event) => { event.preventDefault(); submitSessionRename() }}>
             <S.HistoryRenameInput
               value={editingSessionTitle}
               onChange={(event) =>
@@ -1201,8 +1015,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
               }
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
-                  setEditingSessionId(null)
-                  setEditingSessionTitle('')
+                  cancelSessionRename()
                 }
               }}
               maxLength={60}
@@ -1227,7 +1040,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
               aria-label={`${session.title} 메뉴`}
               aria-haspopup="menu"
               aria-expanded={openSessionMenuId === session.id}
-              onClick={(event) => handleSessionMenuToggle(event, session.id)}
+              onClick={(event) => { event.stopPropagation(); toggleSessionMenu(session.id) }}
             >
               ⋮
             </S.HistoryMenuToggle>
@@ -1237,14 +1050,14 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
                 <S.HistoryMenuItem
                   type="button"
                   role="menuitem"
-                  onClick={(event) => handleSessionRenameStart(event, session)}
+                  onClick={(event) => { event.stopPropagation(); startSessionRename(session) }}
                 >
                   이름 변경
                 </S.HistoryMenuItem>
                 <S.HistoryMenuItem
                   type="button"
                   role="menuitem"
-                  onClick={(event) => handleSessionPin(event, session.id)}
+                  onClick={(event) => { event.stopPropagation(); pinSession(session.id) }}
                 >
                   {session.isPinned ? '고정 해제' : '고정하기'}
                 </S.HistoryMenuItem>
@@ -1252,7 +1065,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
                   type="button"
                   role="menuitem"
                   data-danger="true"
-                  onClick={(event) => handleSessionDelete(event, session.id)}
+                  onClick={(event) => { event.stopPropagation(); requestSessionDeletion(session.id) }}
                 >
                   삭제
                 </S.HistoryMenuItem>
@@ -1271,7 +1084,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
           <S.BrandLogo src="/pingdom-logo.png" alt="Pingdom" />
         </S.SidebarHeader>
 
-        <S.NewChatButton type="button" onClick={resetConsulting}>
+        <S.NewChatButton type="button" onClick={startNewConsultation}>
           <PlusIcon />
           새 상담
         </S.NewChatButton>
@@ -1813,7 +1626,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
           role="presentation"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              setSessionPendingDeletion(null)
+              cancelSessionDeletion()
             }
           }}
         >
@@ -1832,7 +1645,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
             <S.DeleteDialogActions>
               <S.DeleteDialogButton
                 type="button"
-                onClick={() => setSessionPendingDeletion(null)}
+                onClick={() => cancelSessionDeletion()}
                 autoFocus
               >
                 취소
