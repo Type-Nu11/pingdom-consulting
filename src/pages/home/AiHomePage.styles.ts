@@ -563,12 +563,12 @@ export const ChatMain = styled.main`
   padding: 0 32px 64px;
 
   &[data-conversation='true'] {
-    overflow: hidden;
+    overflow: clip;
     padding-bottom: 24px;
   }
 
   &[data-transitioning='true'] {
-    overflow: hidden;
+    overflow: clip;
   }
 
   &::before {

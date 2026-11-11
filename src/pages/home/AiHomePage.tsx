@@ -457,7 +457,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
   const conversationMessagesRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const introRequestRef = useRef<AbortController | null>(null)
   const analysisReportRequestRef = useRef<AbortController | null>(null)
   const analysisProgressMessageTimerRef = useRef<number | null>(null)
@@ -716,9 +715,11 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
       return
     }
 
-    messagesEndRef.current?.scrollIntoView({
+    const messages = conversationMessagesRef.current
+    messages?.scrollTo({
+      top: messages.scrollHeight,
+      left: 0,
       behavior: 'smooth',
-      block: 'end',
     })
   }, [
     confirmedCategory,
@@ -1868,7 +1869,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
                   </>
                 ) : null}
 
-                <S.ConversationEnd ref={messagesEndRef} />
+                <S.ConversationEnd />
               </S.ConversationMessages>
 
               <S.ConversationComposer>
