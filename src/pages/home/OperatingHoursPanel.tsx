@@ -3,8 +3,8 @@ import {
   OPERATING_DAYS,
   type OperatingDays,
   type OperatingHours,
-} from './operatingHours.types'
-import { OPERATING_TIME_OPTIONS } from './operatingHoursOptions'
+} from '../../features/consultation/model/operatingHours.types'
+import { OPERATING_TIME_OPTIONS } from '../../features/consultation/model/operatingHoursOptions'
 import * as S from './OperatingHoursPanel.styles'
 
 type OperatingHoursPanelProps = {

@@ -1,0 +1,29 @@
+{
+  "activeSessionId": "legacy-cafe",
+  "sessions": [
+    {
+      "id": "legacy-cafe",
+      "title": "기존 합성 상담",
+      "isPinned": true,
+      "createdAt": 1700000000000,
+      "updatedAt": 1700000001000,
+      "pendingPrompt": null,
+      "submittedPrompt": "합성 카페를 열고 싶어요",
+      "assistantMessage": "기존 합성 안내",
+      "selectedCategory": "CAFE",
+      "confirmedCategory": "CAFE",
+      "customCategory": "",
+      "confirmedCustomCategory": "",
+      "confirmedLocation": {
+        "id": "legacy-location", "displayName": "합성 장소", "address": "합성 주소",
+        "roadAddress": "합성 도로", "latitude": 37.5, "longitude": 127, "source": "search"
+      },
+      "confirmedTargetCustomer": { "ageGroups": ["20대", "30대"], "nationality": "내국인" },
+      "confirmedOperatingHours": { "operatingDays": "평일", "startTime": "09:00", "endTime": "18:00" },
+      "additionalDetails": "합성 추가 내용",
+      "confirmedAdditionalDetails": "합성 추가 내용",
+      "isSummaryConfirmed": true,
+      "legacyNote": "알 수 없는 기존 필드도 유지"
+    }
+  ]
+}

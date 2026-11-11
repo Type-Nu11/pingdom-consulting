@@ -10,6 +10,10 @@ const output = await mkdtemp(join(tmpdir(), 'consultation-71-'))
 async function assertLayout(page, stage) {
   await page.clock.runFor(1500)
   const overflow = await page.evaluate(() => {
+    // Browser clocks advance JS timers, not CSS animation timelines.
+    for (const animation of document.getAnimations()) {
+      if (animation.effect && Number.isFinite(animation.effect.getComputedTiming().endTime)) animation.finish()
+    }
     const issues = []
     if (document.documentElement.scrollWidth > innerWidth + 1) issues.push('document overflow')
     const root = document.querySelector('[role="dialog"][aria-modal="true"]') ?? document.body
@@ -69,6 +73,7 @@ try {
     await page.getByRole('textbox', { name: 'AI 질문 입력' }).fill('합성 카페 상담')
     await page.getByRole('textbox', { name: 'AI 질문 입력' }).press('Enter')
     await advance()
+    await page.getByRole('button', { name: '선택하기', exact: true }).waitFor()
     await assertLayout(page, 'category')
     await click('카페')
     await click('선택하기')

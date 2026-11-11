@@ -6,7 +6,7 @@ import {
   type AgeGroup,
   type CustomerNationality,
   type TargetCustomerSelection,
-} from './targetCustomerOptions'
+} from '../../features/consultation/model/targetCustomerOptions'
 
 type TargetCustomerPanelProps = {
   confirmedCustomer: TargetCustomerSelection | null
