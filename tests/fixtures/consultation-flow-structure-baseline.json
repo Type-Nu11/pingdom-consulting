@@ -1,0 +1,63 @@
+{
+  "baseCommit": "296b7bec3412be8e43aeea0fd418ada04f427cdd",
+  "states": {
+    "selectedCategory": "7c6678e9bbab0ecbba706f6cfbfddae4fbf16c375d68f3bb344ac837c7ebb2d8",
+    "confirmedCategory": "2849ae0e1f974d2407962e4a598d1de3d6524378b5600a2072c8ac5aba4e1136",
+    "customCategory": "be43595058e9d5fe77db08c1c8a338be4858a79f6c92c0fc29c3151a7aa8718e",
+    "confirmedCustomCategory": "5605ccd7a60c0c16c0e1f1dad78fc31c601c1f4cb2d45645aabba879222471f8",
+    "confirmedLocation": "ecc4e05ebd88d801bc1dfeb4f7154d70f93a132792d00228e2443f0353702a7e",
+    "confirmedTargetCustomer": "c4d22c273dbdbd8753b0e8b22cd59cbb91805029a85334da5784b65c80450edf",
+    "confirmedOperatingHours": "2e4226364703d375fe29c889f3a5beea22dacb18a2dd3559355dda99449303e8",
+    "additionalDetails": "2fe20e4362e7bc6c146980474fa494c19059e63c21afcc02a3832f434fd15ee9",
+    "confirmedAdditionalDetails": "e3a5f684e5b9587c07af10210b34c5138546c8115be6cc7fbd79d7e5e30514d6",
+    "isSummaryConfirmed": "e511c35d1332d6eae61609447f0931e8b4f49093123d558dfa01e6261a717be3"
+  },
+  "derived": {
+    "confirmedCategoryLabel": "779784b326c6a06983b92169a57eb9b323c08a8f2fb4bc63336269079fbf176a",
+    "isSelectionConfirmed": "6db7bffe953dec9be491b1c603a37c55001362d6d3ffdb564ae0828195364e91",
+    "canConfirmCategory": "530d5b315d9a66fbe0fa95b08bc4499582ba9614164489d2f454192b4cd98d19"
+  },
+  "functions": {
+    "useTypewriter": "70ab0351b373f50b62e349122bb2d305cba5ce4331c315161882a6be11e5985a",
+    "useCategorySequence": "66b462c5c7eb5e1ecefdc71e2172ad1968ca79a850154933c812662a76e9bac0",
+    "ArrowUpIcon": "3f72542c088699f8fa4f6fde1a380f5e04d6c7c4ab338aba3133573100d29285",
+    "StarterPromptIcon": "18a222fa7ab4005164dc192e3dbe9751237b5fd5b0e2543a632f455c06be225b",
+    "PlusIcon": "761ba3c8669e632915ca4d1afb8d9ac97fea8b925499e37a3796acf1d709da48",
+    "FileIcon": "ab7e9f684d1c31818db6be46209d863e0dd67cb1e1c7bbdbecfbf25490b88ac2",
+    "DownloadIcon": "79e3eff8b2a806efbb578e46c7104dc010b34b7873ca99a298b7b484bdc5d806",
+    "ImageIcon": "c89f3da29454ffc107f3fec8ed35a64fd4c9ef27c2a87b048a45d2bac29eaea3",
+    "clearAnalysisProgressMessageTimer": "62c2392cbdcc9c49e858c056f51f7dcf8eb110d9cb9571af9a4673bb9ae3c142",
+    "resetConsulting": "326030d7680f6803f031442ebe3753cbfb846b62d7e4208b548cf7f989f8c7c1",
+    "restoreSession": "7cc49cf5a87dbf2af21d02c993960440d53fbe28e53bd8b8deb2526d9f06c4cc",
+    "removeSessionReport": "db87195bfda341745839b360c99efed74b417d261b53dfe7a71eb14e20d09688",
+    "handleConversationGutterWheel": "38db220cf998743976ad20dead117907266caa4e562a892dbe404356592e5f9a",
+    "handlePromptSubmit": "10e76a883167ca109e1491d0ed9a3ecbe4c96d0c5c823051f7618ebd60aac27c",
+    "handleCategorySubmit": "5a6c6665c23ddb3db1f7fa5edebf88995023fc5fd5b3baeed316f9e4b3458046",
+    "handleLocationConfirm": "1d5a79ec3ff52a9a3dd5173a5c7cb99bc656fc0cbf70a710174dc2e416d732cf",
+    "handleTargetCustomerConfirm": "ee96c027af2e98253c31c84037b4d4e53642dd20e688b909f5d09906ded97356",
+    "handleTargetCustomerChange": "e2ec741bf9d70a086a3c98f0ae39679a0114d9141c0bc1f44b170dbd719b8089",
+    "handleSummaryCategoryChange": "2ad0a8078842a8262e21c76ec0e6ec513ae35131edd2a25d779ef330a8ffdbb4",
+    "handleSummaryLocationChange": "492a870a1505d1657e9c5a233e8365008221dbd58f58c5203a9e5ebbd25c01a2",
+    "handleSummaryConfirm": "068a2ca374e440dfb95005ad75bd7f675f2feac9475038256d37984691db461c",
+    "handleLogout": "a091ed0a3ef2602497450edcf245bec892597bb0de6f051dbf15709462003aff",
+    "handleLocationAnalysisReportDownload": "9ef44b7fe97201a987921f501ff81d3d282b56b0be15d0ad7dc6e4ffaf83e1a4",
+    "handleOperatingHoursConfirm": "0bc56ba4b399eef1ef883adc538d0002cb6602d8b5ae9c1740045f570182c422",
+    "handleOperatingHoursChange": "8c927571c717b9f996d814a84c43675a36aed75b9436dd248f6d993eaefff0d0",
+    "handleKeyDown": "cafbb36a85fa4058608142175db2d2ef4d0e8dce4a22c97369f4126a94f41cba",
+    "handlePromptChange": "1d4a3a8ebfa4585f98dff1b10eead57fd4763600a7cc7e1e9c1904842b2fb3fc",
+    "handleStarterPromptSelect": "fc079f288355ebd694f4efb0fd2426c0ae118b4c1f392f3e721d743b93b8a1f4",
+    "handleCategorySelect": "8aabbbfa4bea65afc8afbbe6ec0b1be14e132b0274762635e44ea0a637bc0926",
+    "renderComposer": "8e56f51bf73b240340ed077ff19c1fa71e605c131153913d08d1f528e5692e08",
+    "renderSessionItems": "ed3514a870273c14cf5a9864badc5dfa05e5d35cde885d05e005531c64ccc705"
+  },
+  "effects": [
+    "334c8e78002dc84412ece9ceb87ce879e3964faf1d7898aaca96dfc9ca37a10a",
+    "945baa68d48f4e514dd6f0e72d09f1f6ad908d9453c5c372c658afeb9fad6f08",
+    "8b97a7e9033fd977044d7619fae3ecbcbbc70f889693b0013b1e576c974c2440",
+    "84b6afc72821d7a696edd8740d01aa2b32e06df0ee2f96a769400c33200bece8",
+    "808601ea19243194c8eec09bae0c379fce1ab4e524615405a19c9d43a7e2690d",
+    "4ff8dcb49dd4dc413d1b02a8688850b08df3348097c589fe074b83db0b1cd416",
+    "0db9d31f6e90ee4bbffe030301bc481a3eae0f6c6fc01a722921cbbb2c514f44"
+  ],
+  "jsx": "108f3a1b0abcd4fcb75d4169338feb6f4e2ec223ce965700aa6fd7803c7b887a"
+}
