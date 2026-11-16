@@ -36,7 +36,6 @@ import type { TargetCustomerSelection } from '../../features/consultation/model/
 import {
   STORE_CATEGORIES,
   STORE_CATEGORY_LABELS,
-  type StoreCategoryCode,
 } from '../../features/consultation/model/consultationOptions'
 import type { ConsultationSession } from '../../features/consultation/model/consultation.types'
 import {
@@ -44,6 +43,7 @@ import {
   formatTargetCustomerGroup,
 } from '../../features/consultation/model/consultationHistory'
 import { useConsultationHistory } from '../../features/consultation/hooks/useConsultationHistory'
+import { useConsultationFlow } from '../../features/consultation/hooks/useConsultationFlow'
 import * as S from './AiHomePage.styles'
 
 const CATEGORY_ASSISTANT_FALLBACK =
@@ -278,21 +278,17 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   const [assistantMessage, setAssistantMessage] = useState<string | null>(null)
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false)
   const [isPromptExpanded, setIsPromptExpanded] = useState(false)
-  const [selectedCategory, setSelectedCategory] =
-    useState<StoreCategoryCode | null>(null)
-  const [confirmedCategory, setConfirmedCategory] =
-    useState<StoreCategoryCode | null>(null)
-  const [customCategory, setCustomCategory] = useState('')
-  const [confirmedCustomCategory, setConfirmedCustomCategory] = useState('')
-  const [confirmedLocation, setConfirmedLocation] =
-    useState<LocationSelection | null>(null)
-  const [confirmedTargetCustomer, setConfirmedTargetCustomer] =
-    useState<TargetCustomerSelection | null>(null)
-  const [confirmedOperatingHours, setConfirmedOperatingHours] =
-    useState<OperatingHours | null>(null)
-  const [additionalDetails, setAdditionalDetails] = useState('')
-  const [confirmedAdditionalDetails, setConfirmedAdditionalDetails] = useState('')
-  const [isSummaryConfirmed, setIsSummaryConfirmed] = useState(false)
+  const {
+    selectedCategory, confirmedCategory, customCategory, confirmedCustomCategory,
+    confirmedLocation, confirmedTargetCustomer, confirmedOperatingHours,
+    additionalDetails, confirmedAdditionalDetails, isSummaryConfirmed,
+    confirmedCategoryLabel, isSelectionConfirmed, canConfirmCategory,
+    setCustomCategory, setAdditionalDetails, resetFlow, restoreFlow,
+    selectCategory: handleCategorySelect, confirmCategory, confirmLocation,
+    confirmTargetCustomer, editTargetCustomer, changeSummaryCategory,
+    changeSummaryLocation, confirmOperatingHours, editOperatingHours,
+    confirmSummary, clearSummaryConfirmation,
+  } = useConsultationFlow()
   const [isSubmittingAnalysisReport, setIsSubmittingAnalysisReport] =
     useState(false)
   const [analysisReportSubmissionError, setAnalysisReportSubmissionError] =
@@ -334,15 +330,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     }
   }, [])
 
-  const confirmedCategoryLabel =
-    confirmedCategory === 'OTHER'
-      ? confirmedCustomCategory
-      : STORE_CATEGORIES.find(({ code }) => code === confirmedCategory)?.label
-  const isSelectionConfirmed =
-    selectedCategory !== null && confirmedCategory === selectedCategory
-  const canConfirmCategory =
-    selectedCategory !== null &&
-    (selectedCategory !== 'OTHER' || customCategory.trim().length > 0)
   const isCollectingCategory = submittedPrompt !== null
   const isTransitioningToConversation =
     pendingPrompt !== null && submittedPrompt === null
@@ -595,16 +582,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setPendingPrompt(null)
     setSubmittedPrompt(null)
     setAssistantMessage(null)
-    setSelectedCategory(null)
-    setConfirmedCategory(null)
-    setCustomCategory('')
-    setConfirmedCustomCategory('')
-    setConfirmedLocation(null)
-    setConfirmedTargetCustomer(null)
-    setConfirmedOperatingHours(null)
-    setAdditionalDetails('')
-    setConfirmedAdditionalDetails('')
-    setIsSummaryConfirmed(false)
+    resetFlow()
     setIsSubmittingAnalysisReport(false)
     setAnalysisReportSubmissionError(null)
     setLocationAnalysisReport(null)
@@ -622,16 +600,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setPendingPrompt(session.pendingPrompt)
     setSubmittedPrompt(session.submittedPrompt)
     setAssistantMessage(session.assistantMessage)
-    setSelectedCategory(session.selectedCategory)
-    setConfirmedCategory(session.confirmedCategory)
-    setCustomCategory(session.customCategory)
-    setConfirmedCustomCategory(session.confirmedCustomCategory)
-    setConfirmedLocation(session.confirmedLocation)
-    setConfirmedTargetCustomer(session.confirmedTargetCustomer)
-    setConfirmedOperatingHours(session.confirmedOperatingHours)
-    setAdditionalDetails(session.additionalDetails)
-    setConfirmedAdditionalDetails(session.confirmedAdditionalDetails)
-    setIsSummaryConfirmed(session.isSummaryConfirmed)
+    restoreFlow(session)
     setIsSubmittingAnalysisReport(false)
     setAnalysisReportSubmissionError(null)
     setLocationAnalysisReport(null)
@@ -683,61 +652,31 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
 
   function handleCategorySubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!canConfirmCategory || !selectedCategory) {
-      return
-    }
-
-    setConfirmedCustomCategory(
-      selectedCategory === 'OTHER' ? customCategory.trim() : '',
-    )
-    setConfirmedCategory(selectedCategory)
+    confirmCategory()
   }
 
   function handleLocationConfirm(location: LocationSelection) {
-    setConfirmedLocation(location)
-    setConfirmedTargetCustomer(null)
-    setConfirmedOperatingHours(null)
-    setConfirmedAdditionalDetails('')
-    setIsSummaryConfirmed(false)
+    confirmLocation(location)
     setAnalysisReportSubmissionError(null)
   }
 
   function handleTargetCustomerConfirm(customer: TargetCustomerSelection) {
-    setConfirmedTargetCustomer(customer)
-    setConfirmedOperatingHours(null)
-    setConfirmedAdditionalDetails('')
-    setIsSummaryConfirmed(false)
+    confirmTargetCustomer(customer)
     setAnalysisReportSubmissionError(null)
   }
 
   function handleTargetCustomerChange() {
-    setConfirmedTargetCustomer(null)
-    setConfirmedOperatingHours(null)
-    setIsSummaryConfirmed(false)
+    editTargetCustomer()
     setAnalysisReportSubmissionError(null)
   }
 
   function handleSummaryCategoryChange(categoryLabel: string) {
-    const matchingCategory = STORE_CATEGORIES.find(
-      ({ label }) => label === categoryLabel,
-    )
-    const nextCategory = matchingCategory?.code ?? 'OTHER'
-    const nextCustomCategory = matchingCategory ? '' : categoryLabel
-
-    setSelectedCategory(nextCategory)
-    setConfirmedCategory(nextCategory)
-    setCustomCategory(nextCustomCategory)
-    setConfirmedCustomCategory(nextCustomCategory)
-    setIsSummaryConfirmed(false)
+    changeSummaryCategory(categoryLabel)
     setAnalysisReportSubmissionError(null)
   }
 
   function handleSummaryLocationChange(location: LocationSelection) {
-    setConfirmedLocation(location)
-    setConfirmedTargetCustomer(null)
-    setConfirmedOperatingHours(null)
-    setIsSummaryConfirmed(false)
+    changeSummaryLocation(location)
     setAnalysisReportSubmissionError(null)
   }
 
@@ -758,8 +697,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setIsSubmittingAnalysisReport(true)
     setAnalysisReportSubmissionError(null)
     setLocationAnalysisReport(null)
-    setConfirmedAdditionalDetails(additionalDetails.trim())
-    setIsSummaryConfirmed(true)
+    confirmSummary()
     setAnalysisProgressStage('initial-loading')
     analysisProgressMessageTimerRef.current = window.setTimeout(() => {
       setAnalysisProgressStage('message')
@@ -805,7 +743,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
         }
 
         setAnalysisReportSubmissionError(locationAnalysisReportErrorMessage(error as ApiError))
-        setIsSummaryConfirmed(false)
+        clearSummaryConfirmation()
         setAnalysisProgressStage(null)
       }
     } finally {
@@ -840,15 +778,12 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   }
 
   function handleOperatingHoursConfirm(operatingHours: OperatingHours) {
-    setConfirmedOperatingHours(operatingHours)
-    setConfirmedAdditionalDetails('')
-    setIsSummaryConfirmed(false)
+    confirmOperatingHours(operatingHours)
     setAnalysisReportSubmissionError(null)
   }
 
   function handleOperatingHoursChange() {
-    setConfirmedOperatingHours(null)
-    setIsSummaryConfirmed(false)
+    editOperatingHours()
     setAnalysisReportSubmissionError(null)
   }
 
@@ -878,14 +813,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setIsPromptExpanded(false)
 
     requestAnimationFrame(() => promptInputRef.current?.focus())
-  }
-
-  function handleCategorySelect(category: StoreCategoryCode) {
-    if (isSelectionConfirmed) {
-      return
-    }
-
-    setSelectedCategory(category)
   }
 
   function renderComposer(
