@@ -12,17 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import { logout } from '../../features/auth/authApi'
 import type { AuthSession } from '../../features/auth/authSession'
 import { CONSULTATION_PROMPT_MAX_LENGTH } from '../../features/consultation/consultationAiApi'
-import {
-  locationAnalysisReportErrorMessage,
-  requestLocationAnalysisReport,
-  type LocationAnalysisReport,
-} from '../../features/analysis/locationAnalysisReportApi'
-import {
-  deleteLocationAnalysisReport,
-  readLocationAnalysisReport,
-  saveLocationAnalysisReport,
-} from '../../features/analysis/locationAnalysisReportStorage'
-import type { ApiError } from '../../features/api/apiClient'
+import { useAnalysisReport } from '../../features/analysis/hooks/useAnalysisReport'
 import type { LocationSelection } from '../../features/location/location.types'
 import ConsultationSummaryPanel from './ConsultationSummaryPanel'
 import LocationSelectionPanel from './LocationSelectionPanel'
@@ -55,19 +45,12 @@ const CATEGORY_TEXT_SEQUENCE = [
 
 const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
 const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
-const ANALYSIS_PROGRESS_MESSAGE_GAP_MS = 450
 const CONVERSATION_TRANSITION_DELAY = 480
 const STARTER_PROMPTS = [
   '수원역 근처에 브런치 카페를 열고 싶어요.',
   '직장인이 많이 찾는 점심 식당 입지를 추천해 주세요.',
   '20대가 많이 찾는 팝업스토어 위치를 찾고 싶어요.',
 ] as const
-
-type AnalysisProgressStage =
-  | 'initial-loading'
-  | 'message'
-  | 'analysis-loading'
-  | null
 
 function useTypewriter(
   fullText: string | null,
@@ -284,20 +267,10 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     changeSummaryLocation, confirmOperatingHours, editOperatingHours,
     confirmSummary, clearSummaryConfirmation,
   } = useConsultationFlow()
-  const [isSubmittingAnalysisReport, setIsSubmittingAnalysisReport] =
-    useState(false)
-  const [analysisReportSubmissionError, setAnalysisReportSubmissionError] =
-    useState<string | null>(null)
-  const [locationAnalysisReport, setLocationAnalysisReport] =
-    useState<LocationAnalysisReport | null>(null)
-  const [analysisProgressStage, setAnalysisProgressStage] =
-    useState<AnalysisProgressStage>(null)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
   const conversationMessagesRef = useRef<HTMLDivElement>(null)
-  const analysisReportRequestRef = useRef<AbortController | null>(null)
-  const analysisProgressMessageTimerRef = useRef<number | null>(null)
 
   const {
     sessions, activeSessionId, pinnedSessions, unpinnedSessions, openSessionMenuId,
@@ -317,12 +290,16 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     onDeleteReport: removeSessionReport,
   })
 
-  useEffect(() => () => {
-    analysisReportRequestRef.current?.abort()
-    if (analysisProgressMessageTimerRef.current !== null) {
-      window.clearTimeout(analysisProgressMessageTimerRef.current)
-    }
-  }, [])
+  const {
+    isSubmittingAnalysisReport, analysisReportSubmissionError, locationAnalysisReport,
+    analysisProgressStage, cancelAnalysisReport, clearAnalysisProgressMessageTimer,
+    resetAnalysisReportState, clearAnalysisReportError, scheduleAnalysisLoading,
+    submitAnalysisReport, deleteReport, downloadAnalysisReport,
+  } = useAnalysisReport({
+    userId: user.id,
+    activeSessionId,
+    initialLoadingDelay: ASSISTANT_RESPONSE_LOADING_DELAY,
+  })
 
   const isCollectingCategory = submittedPrompt !== null
   const isTransitioningToConversation =
@@ -482,13 +459,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     analysisProgressStage,
   ])
 
-  function clearAnalysisProgressMessageTimer() {
-    if (analysisProgressMessageTimerRef.current !== null) {
-      window.clearTimeout(analysisProgressMessageTimerRef.current)
-      analysisProgressMessageTimerRef.current = null
-    }
-  }
-
   useEffect(() => {
     if (
       analysisProgressStage !== 'message' ||
@@ -497,49 +467,12 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
       return
     }
 
-    const timer = window.setTimeout(() => {
-      setAnalysisProgressStage('analysis-loading')
-      analysisProgressMessageTimerRef.current = null
-    }, ANALYSIS_PROGRESS_MESSAGE_GAP_MS)
-    analysisProgressMessageTimerRef.current = timer
-
-    return () => {
-      if (analysisProgressMessageTimerRef.current === timer) {
-        window.clearTimeout(timer)
-        analysisProgressMessageTimerRef.current = null
-      }
-    }
-  }, [analysisProgressStage, analysisProgressTypewriter.isComplete])
-
-  useEffect(() => {
-    let isCurrentSession = true
-
-    if (!activeSessionId) {
-      return () => {
-        isCurrentSession = false
-      }
-    }
-
-    void readLocationAnalysisReport(user.id, activeSessionId)
-      .then((report) => {
-        if (isCurrentSession) {
-          setLocationAnalysisReport(report)
-        }
-      })
-      .catch((error: unknown) => {
-        if (import.meta.env.DEV) {
-          console.error('저장된 입지 분석 PDF를 불러오지 못했습니다.', error)
-        }
-      })
-
-    return () => {
-      isCurrentSession = false
-    }
-  }, [activeSessionId, user.id])
+    return scheduleAnalysisLoading()
+  }, [analysisProgressStage, analysisProgressTypewriter.isComplete, scheduleAnalysisLoading])
 
   function resetConsulting() {
     cancelIntro()
-    analysisReportRequestRef.current?.abort()
+    cancelAnalysisReport()
     clearAnalysisProgressMessageTimer()
     setIsRestoredSession(false)
     setPrompt('')
@@ -547,17 +480,14 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setSubmittedPrompt(null)
     setAssistantMessage(null)
     resetFlow()
-    setIsSubmittingAnalysisReport(false)
-    setAnalysisReportSubmissionError(null)
-    setLocationAnalysisReport(null)
-    setAnalysisProgressStage(null)
+    resetAnalysisReportState()
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
 
   function restoreSession(session: ConsultationSession) {
     cancelIntro()
-    analysisReportRequestRef.current?.abort()
+    cancelAnalysisReport()
     clearAnalysisProgressMessageTimer()
     setIsRestoredSession(true)
     setPrompt('')
@@ -565,20 +495,13 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     setSubmittedPrompt(session.submittedPrompt)
     setAssistantMessage(session.assistantMessage)
     restoreFlow(session)
-    setIsSubmittingAnalysisReport(false)
-    setAnalysisReportSubmissionError(null)
-    setLocationAnalysisReport(null)
-    setAnalysisProgressStage(null)
+    resetAnalysisReportState()
     setIsAttachmentMenuOpen(false)
     setIsPromptExpanded(false)
   }
 
   function removeSessionReport(sessionId: string) {
-    void deleteLocationAnalysisReport(user.id, sessionId).catch(
-      (error: unknown) => {
-        if (import.meta.env.DEV) console.error('입지 분석 PDF를 삭제하지 못했습니다.', error)
-      },
-    )
+    deleteReport(sessionId)
   }
 
   function handleConversationGutterWheel(
@@ -621,27 +544,27 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
 
   function handleLocationConfirm(location: LocationSelection) {
     confirmLocation(location)
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   function handleTargetCustomerConfirm(customer: TargetCustomerSelection) {
     confirmTargetCustomer(customer)
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   function handleTargetCustomerChange() {
     editTargetCustomer()
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   function handleSummaryCategoryChange(categoryLabel: string) {
     changeSummaryCategory(categoryLabel)
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   function handleSummaryLocationChange(location: LocationSelection) {
     changeSummaryLocation(location)
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   async function handleSummaryConfirm(privacyConsent: true) {
@@ -654,101 +577,45 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
       return
     }
 
-    analysisReportRequestRef.current?.abort()
-    clearAnalysisProgressMessageTimer()
-    const controller = new AbortController()
-    analysisReportRequestRef.current = controller
-    setIsSubmittingAnalysisReport(true)
-    setAnalysisReportSubmissionError(null)
-    setLocationAnalysisReport(null)
-    confirmSummary()
-    setAnalysisProgressStage('initial-loading')
-    analysisProgressMessageTimerRef.current = window.setTimeout(() => {
-      setAnalysisProgressStage('message')
-      analysisProgressMessageTimerRef.current = null
-    }, ASSISTANT_RESPONSE_LOADING_DELAY)
-
-    try {
-      const report = await requestLocationAnalysisReport(
-        {
-          region:
-            confirmedLocation.address ||
-            confirmedLocation.roadAddress ||
-            confirmedLocation.displayName,
-          category: confirmedCategoryLabel,
-          targetCustomerGroup: formatTargetCustomerGroup(
-            confirmedTargetCustomer,
-          ),
-          operatingHours: `${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime}`,
-          email: user.email,
-          privacyConsent,
-        },
-        controller.signal,
-      )
-
-      if (!controller.signal.aborted) {
-        clearAnalysisProgressMessageTimer()
-        setLocationAnalysisReport(report)
-        if (activeSessionId) {
-          void saveLocationAnalysisReport(user.id, activeSessionId, report).catch(
-            (error: unknown) => {
-              if (import.meta.env.DEV) {
-                console.error('입지 분석 PDF를 저장하지 못했습니다.', error)
-              }
-            },
-          )
-        }
-      }
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        clearAnalysisProgressMessageTimer()
-        if (import.meta.env.DEV) {
-          console.error('입지 분석 PDF 요청에 실패했습니다.', error)
-        }
-
-        setAnalysisReportSubmissionError(locationAnalysisReportErrorMessage(error as ApiError))
-        clearSummaryConfirmation()
-        setAnalysisProgressStage(null)
-      }
-    } finally {
-      if (analysisReportRequestRef.current === controller) {
-        analysisReportRequestRef.current = null
-        setIsSubmittingAnalysisReport(false)
-      }
-    }
+    await submitAnalysisReport(
+      () => ({
+        region:
+          confirmedLocation.address ||
+          confirmedLocation.roadAddress ||
+          confirmedLocation.displayName,
+        category: confirmedCategoryLabel,
+        targetCustomerGroup: formatTargetCustomerGroup(
+          confirmedTargetCustomer,
+        ),
+        operatingHours: `${confirmedOperatingHours.operatingDays ?? '평일'} ${confirmedOperatingHours.startTime}~${confirmedOperatingHours.endTime}`,
+        email: user.email,
+        privacyConsent,
+      }),
+      confirmSummary,
+      clearSummaryConfirmation,
+    )
   }
 
   function handleLogout() {
     cancelIntro()
-    analysisReportRequestRef.current?.abort()
+    cancelAnalysisReport()
     void logout().catch(() => {
       navigate('/login?reason=logout-failed', { replace: true })
     })
   }
 
   function handleLocationAnalysisReportDownload() {
-    if (!locationAnalysisReport) {
-      return
-    }
-
-    const objectUrl = URL.createObjectURL(locationAnalysisReport.pdf)
-    const link = document.createElement('a')
-    link.href = objectUrl
-    link.download = locationAnalysisReport.filename
-    document.body.append(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(objectUrl)
+    downloadAnalysisReport()
   }
 
   function handleOperatingHoursConfirm(operatingHours: OperatingHours) {
     confirmOperatingHours(operatingHours)
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   function handleOperatingHoursChange() {
     editOperatingHours()
-    setAnalysisReportSubmissionError(null)
+    clearAnalysisReportError()
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
