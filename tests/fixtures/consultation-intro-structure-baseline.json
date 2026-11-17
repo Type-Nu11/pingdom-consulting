@@ -1,0 +1,9 @@
+{
+  "baseCommit": "b0a6f06aece2acc6408991b2d769a359284764ea",
+  "sourcePath": "src/pages/home/AiHomePage.tsx",
+  "hashAlgorithm": "sha256",
+  "canonicalFormat": "[node.kind, ...children] or [node.kind, node.text ?? null] for leaf nodes",
+  "effectBody": "585c08b145eed11ed9dbeff29208af72203c050892375e8ab15b7b7f4a407d3d",
+  "fallback": "7b90daf83be9eeaf21c1b57601114e053d451bd87a7cf2fe7b67e008f25ed3bd",
+  "requestRef": "3bf5d7289201c225589e08c85f7cc4c5e96355827e91f558aca15bfba3f817b1"
+}
