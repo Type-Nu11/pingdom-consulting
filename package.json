@@ -8,6 +8,7 @@
     "test:browser": "node tests/browser/consultation-flow.mjs",
     "test:history": "node tests/browser/consultation-history.mjs",
     "test:flow": "node tests/browser/consultation-flow-state.mjs",
+    "test:intro": "node tests/browser/consultation-intro.mjs",
     "test:location": "node --test tests/location.test.mjs",
     "test:auth": "node --test tests/auth.test.mjs",
     "test:pingcha": "node --test tests/pingcha.test.mjs",

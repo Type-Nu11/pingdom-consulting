@@ -7,7 +7,7 @@ import { apiClient } from '../../src/features/api/apiClient'
 import { saveAuthSession } from '../../src/features/auth/authSession'
 import { readLocationAnalysisReport, saveLocationAnalysisReport } from '../../src/features/analysis/locationAnalysisReportStorage'
 
-window.qa = { requests: [], unexpected: [], mode: 'success', release: null }
+window.qa = { requests: [], unexpected: [], mode: 'success', release: null, introMode: 'success', introRequests: [], introCompletions: 0 }
 window.qa.hasReport = async (userId, sessionId) => Boolean(await readLocationAnalysisReport(userId, sessionId))
 window.qa.seedReport = (userId, sessionId, filename) => saveLocationAnalysisReport(userId, sessionId, {
   pdf: new Blob(['%PDF-1.4\nsynthetic-only\n%%EOF'], { type: 'application/pdf' }), filename,
@@ -16,7 +16,19 @@ window.qa.account = (id) => saveAuthSession({ accessToken: 'synthetic-only', use
 apiClient.defaults.adapter = async config => {
   window.qa.requests.push({ url: config.url, data: config.data })
   let data
-  if (config.url === '/consultations/intro') data = { message: '합성 상담 안내', source: 'fallback' }
+  if (config.url === '/consultations/intro') {
+    if (window.qa.introMode === 'hold') {
+      try {
+        data = await new Promise((resolve, reject) => {
+          window.qa.introRequests.push({
+            signal: config.signal,
+            resolve(message) { resolve({ message, source: 'gemini' }) },
+            reject() { reject(new AxiosError('Synthetic intro failure', 'ERR_BAD_RESPONSE', config, {}, { status: 502, config, data: {}, headers: {} })) },
+          })
+        })
+      } finally { window.qa.introCompletions += 1 }
+    } else data = { message: '합성 상담 안내', source: 'fallback' }
+  }
   else if (config.url === '/analysis/reports/location') {
     if (window.qa.mode === 'hold') await new Promise(resolve => { window.qa.release = resolve })
     if (window.qa.mode === 'failure') throw new AxiosError('Synthetic failure', 'ERR_BAD_RESPONSE', config, {}, { status: 502, config, data: {}, headers: {} })
