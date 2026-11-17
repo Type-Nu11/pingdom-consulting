@@ -1,0 +1,20 @@
+{
+  "baseCommit": "4c49b5f3010242b319805e47b1716e64f88a52ff",
+  "sourcePath": "src/pages/home/AiHomePage.tsx",
+  "hashAlgorithm": "sha256",
+  "declarations": {
+    "isSubmittingAnalysisReport": "be1920f2f6f52aa89556b21275438b58b2bc4114a6787df9a1e91e82ae84a76e",
+    "analysisReportSubmissionError": "f7eb2757f79e71d46d3d7e9f09f145086636cd5a91fa5e42f2e9ac073a02bf54",
+    "locationAnalysisReport": "bc51e6b7f72c036093d07d50a938093a5112053c87767a59ce337444070fe82a",
+    "analysisProgressStage": "b6199ed74af61918edc2c93f5e6cae218e21da048856f10f8ab21b87b88041f8",
+    "analysisReportRequestRef": "d0d441b2e7dc1d92ef6868358286d6ce28682cb853d6467460c7bf450ed7802d",
+    "analysisProgressMessageTimerRef": "075bd35a2a793f252f38e05c1649923945345b905d09983247b4f4d4b22a614b"
+  },
+  "stage": "22fc9944892c024e34f7011f0e8743c8cab66c542ee5bb956b147639d14e83d2",
+  "gap": "130ec047f142a36731442b8b4943b423a7ad9224a8f4d1da1b9009286d11a4a4",
+  "files": {
+    "src/features/analysis/locationAnalysisReportApi.ts": "4be87f957811e59774fe21fecbb6785ce6c7ba3ea87ce3d4b2109874da0fa226",
+    "src/features/analysis/locationAnalysisReportStorage.ts": "b84d19a5520a49f40deb65f03c733faaeeb726d42917c405bc3af148303b010c",
+    "src/pages/home/AiHomePage.styles.ts": "60243d783b6228bbb494936b813c75c4c4d929397732aa5e9f4c00039fe1ec09"
+  }
+}
