@@ -11,10 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { logout } from '../../features/auth/authApi'
 import type { AuthSession } from '../../features/auth/authSession'
-import {
-  CONSULTATION_PROMPT_MAX_LENGTH,
-  requestConsultationIntro,
-} from '../../features/consultation/consultationAiApi'
+import { CONSULTATION_PROMPT_MAX_LENGTH } from '../../features/consultation/consultationAiApi'
 import {
   locationAnalysisReportErrorMessage,
   requestLocationAnalysisReport,
@@ -44,10 +41,8 @@ import {
 } from '../../features/consultation/model/consultationHistory'
 import { useConsultationHistory } from '../../features/consultation/hooks/useConsultationHistory'
 import { useConsultationFlow } from '../../features/consultation/hooks/useConsultationFlow'
+import { useConsultationIntro } from '../../features/consultation/hooks/useConsultationIntro'
 import * as S from './AiHomePage.styles'
-
-const CATEGORY_ASSISTANT_FALLBACK =
-  '말씀해주신 가게를 준비하고 계시는군요. 정확한 분석을 위해 아래 카테고리 중 가장 가까운 업종을 선택해 주세요.'
 
 const CATEGORY_TEXT_SEQUENCE = [
   '가게 카테고리',
@@ -301,7 +296,6 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   const promptHeightRef = useRef(44)
   const promptLengthRef = useRef(0)
   const conversationMessagesRef = useRef<HTMLDivElement>(null)
-  const introRequestRef = useRef<AbortController | null>(null)
   const analysisReportRequestRef = useRef<AbortController | null>(null)
   const analysisProgressMessageTimerRef = useRef<number | null>(null)
 
@@ -422,41 +416,11 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     }
   }, [pendingPrompt])
 
-  useEffect(() => {
-    if (!submittedPrompt || assistantMessage) {
-      return
-    }
-
-    const promptToSend = submittedPrompt
-    const controller = new AbortController()
-    introRequestRef.current = controller
-
-    async function loadAssistantMessage() {
-      try {
-        const generatedMessage = await requestConsultationIntro(
-          promptToSend,
-          controller.signal,
-        )
-
-        if (!controller.signal.aborted) {
-          setAssistantMessage(generatedMessage)
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setAssistantMessage(CATEGORY_ASSISTANT_FALLBACK)
-        }
-      }
-    }
-
-    void loadAssistantMessage()
-
-    return () => {
-      controller.abort()
-      if (introRequestRef.current === controller) {
-        introRequestRef.current = null
-      }
-    }
-  }, [assistantMessage, submittedPrompt])
+  const { cancelIntro } = useConsultationIntro({
+    submittedPrompt,
+    assistantMessage,
+    setAssistantMessage,
+  })
 
   useLayoutEffect(() => {
     const input = promptInputRef.current
@@ -574,7 +538,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   }, [activeSessionId, user.id])
 
   function resetConsulting() {
-    introRequestRef.current?.abort()
+    cancelIntro()
     analysisReportRequestRef.current?.abort()
     clearAnalysisProgressMessageTimer()
     setIsRestoredSession(false)
@@ -592,7 +556,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   }
 
   function restoreSession(session: ConsultationSession) {
-    introRequestRef.current?.abort()
+    cancelIntro()
     analysisReportRequestRef.current?.abort()
     clearAnalysisProgressMessageTimer()
     setIsRestoredSession(true)
@@ -755,7 +719,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
   }
 
   function handleLogout() {
-    introRequestRef.current?.abort()
+    cancelIntro()
     analysisReportRequestRef.current?.abort()
     void logout().catch(() => {
       navigate('/login?reason=logout-failed', { replace: true })

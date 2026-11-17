@@ -9,10 +9,13 @@ const baseline = JSON.parse(readFileSync(new URL('./fixtures/consultation-flow-s
 const parse = file => ts.createSourceFile(file, readFileSync(new URL(file, root), 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
 const page = parse('src/pages/home/AiHomePage.tsx')
 const flow = parse('src/features/consultation/hooks/useConsultationFlow.ts')
+const intro = parse('src/features/consultation/hooks/useConsultationIntro.ts')
+const introHook = intro.statements.find(node => node.name?.text === 'useConsultationIntro')
 const main = page.statements.find(node => node.name?.text === 'AiHomePage')
 const hook = flow.statements.find(node => node.name?.text === 'useConsultationFlow')
 const declarations = block => block.statements.filter(ts.isVariableStatement).flatMap(node => [...node.declarationList.declarations])
 const actions = new Map(hook.body.statements.filter(ts.isFunctionDeclaration).map(node => [node.name.text, node]))
+actions.set('cancelIntro', introHook.body.statements.find(node => node.name?.text === 'cancelIntro'))
 function canonical(node) {
   const children = []
   ts.forEachChild(node, child => { children.push(canonical(child)) })
@@ -63,7 +66,21 @@ for (const [name, expected] of Object.entries(baseline.functions)) test(`${name}
 
 test('page JSX and effect/dependency order stay unchanged', () => {
   assert.equal(hash(main.body.statements.find(ts.isReturnStatement)), baseline.jsx)
-  assert.deepEqual(main.body.statements.filter(node => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && ['useEffect', 'useLayoutEffect'].includes(node.expression.expression.getText(page))).map(hash), baseline.effects)
+  const effects = main.body.statements.flatMap(node => {
+    const call = ts.isVariableStatement(node) ? node.declarationList.declarations[0]?.initializer : undefined
+    if (call && ts.isCallExpression(call) && call.expression.getText(page) === 'useConsultationIntro') {
+      // Expand the hook at its actual page call position. The only extra effect
+      // dependency is the stable page setter, whose origin is checked separately.
+      return introHook.body.statements.filter(statement => ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression) && statement.expression.expression.getText(intro) === 'useEffect').map(statement => {
+        const effect = statement.expression
+        const dependencies = effect.arguments[1]
+        assert.deepEqual(dependencies.elements.map(item => item.getText(intro)), ['assistantMessage', 'submittedPrompt', 'setAssistantMessage'])
+        return ts.factory.updateExpressionStatement(statement, ts.factory.updateCallExpression(effect, effect.expression, effect.typeArguments, [effect.arguments[0], ts.factory.createArrayLiteralExpression(dependencies.elements.slice(0, 2))]))
+      })
+    }
+    return ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && ['useEffect', 'useLayoutEffect'].includes(node.expression.expression.getText(page)) ? [node] : []
+  })
+  assert.deepEqual(effects.map(hash), baseline.effects)
 })
 
 test('flow hook has no history, request, storage, timer, DOM, presentation or page dependency', () => {
