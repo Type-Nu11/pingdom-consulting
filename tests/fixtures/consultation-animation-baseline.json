@@ -1,0 +1,32 @@
+{
+  "baseCommit": "38c5c93496b74378c88d5ac5228623025ec0dcc8",
+  "sourcePath": "src/pages/home/AiHomePage.tsx",
+  "constants": {
+    "CATEGORY_TEXT_SEQUENCE": "d7a50ad776a5c03e6635ab01e9f359a1624a97272c76211ed8d648b6d221adc5",
+    "CATEGORY_CONFIRM_INDEX": "1f0475d84ad75b2fd3e9491f51a0fb065ce13f8b08e8963c37d35de4de5725c4",
+    "ASSISTANT_RESPONSE_LOADING_DELAY": "999dae2165baa1ce512c99960863e74c0549a77109345e8b44b325f1e38a119e",
+    "CONVERSATION_TRANSITION_DELAY": "84d49066d6ae790cb8ac7a782cd77b40bef3ea12a9c676198868a71c1535c6ff"
+  },
+  "calls": [
+    "c552cc080f4e6fc3eff2648bf8b1e716d3ab216f31b17d6c8e22d89d8018a7bd",
+    "5a9e7ad9b507a8a7bda666753fd66a1c4a8def48d95dea92167f0b676919268c",
+    "249a65e8b2e7c17b4c31a68ad2850310a4d7cf09a055d505750a75dcecd52b79",
+    "29323702f2a6e45fc7fe1354100350f9a619516316167be43bccbf4eead81e32",
+    "b03626514feb18ca3e36b3c91a03688d4aa34e4fc9e4e7f783746e8d883f58ef",
+    "7b701c5233fe778b044d23df7882ec3f70deb64b5dc2a5e91f9b9a512efc6663",
+    "b7d7b11370ad65bec966354675828470512fe7d801f3ac19840b56f908cbeff4",
+    "bd9b10fde5f16f0340691d667dce038eaea2dea8a9dfe7a78d4523d3ca7a6556"
+  ],
+  "animationParameters": {
+    "useTypewriter": [
+      "52b76f5a052e7946faa9f25bff39beb48cc11e57042b07fcdc03ce372826141a",
+      "5bf5d2e115115d30baee232ee11ec3cfdbf3f80264ce8aafc3f2821cdbc4bafe",
+      "e3b62eeaf7bfd91b81a6eca53d263bf774e1b39827accf8fb26cbee597ef3adc",
+      "da8528e7f24b0c8d88eee8e0f75c8b00e5fabdac42c5397764faf412ec24786b"
+    ],
+    "useCategorySequence": [
+      "ff2f9e9980bd131e34238560d1c75b8160453fb5a2ff2c04f9be52b04861a8e1",
+      "da8528e7f24b0c8d88eee8e0f75c8b00e5fabdac42c5397764faf412ec24786b"
+    ]
+  }
+}
