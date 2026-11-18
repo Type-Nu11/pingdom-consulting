@@ -11,6 +11,10 @@ const page = parse('src/pages/home/AiHomePage.tsx')
 const flow = parse('src/features/consultation/hooks/useConsultationFlow.ts')
 const intro = parse('src/features/consultation/hooks/useConsultationIntro.ts')
 const introHook = intro.statements.find(node => node.name?.text === 'useConsultationIntro')
+const animation = new Map(['useTypewriter', 'useCategorySequence', 'useConversationTransition'].map(name => {
+  const source = parse(`src/features/consultation/hooks/${name}.ts`)
+  return [name, source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name)]
+}))
 const analysis = parse('src/features/analysis/hooks/useAnalysisReport.ts')
 const analysisHook = analysis.statements.find(node => node.name?.text === 'useAnalysisReport')
 const analysisFunctions = new Map(analysisHook.body.statements.filter(ts.isFunctionDeclaration).map(node => [node.name.text, node]))
@@ -86,12 +90,12 @@ for (const [name, expected] of Object.entries(baseline.derived)) test(`${name}: 
 
 const pageFunctions = new Map([...page.statements.filter(node => ts.isFunctionDeclaration(node) && node !== main), ...main.body.statements.filter(ts.isFunctionDeclaration)].map(node => [node.name.text, node]))
 for (const [name, expected] of Object.entries(baseline.functions)) test(`${name}: original page behavior after expanding extracted commands`, () => {
-  const declaration = pageFunctions.get(name) ?? analysisFunctions.get(name) ?? (name === 'handleCategorySelect' ? actions.get('selectCategory') : undefined)
+  const declaration = pageFunctions.get(name) ?? animation.get(name) ?? analysisFunctions.get(name) ?? (name === 'handleCategorySelect' ? actions.get('selectCategory') : undefined)
   assert.ok(declaration, name)
   assert.equal(hash(expand(declaration.body)), expected)
 })
 
-test('page JSX, unmoved effects and extracted report effects preserve their behavior', () => {
+test('page JSX and effect order preserve behavior after expanding extracted effects', () => {
   assert.equal(hash(main.body.statements.find(ts.isReturnStatement)), baseline.jsx)
   const effects = main.body.statements.flatMap(node => {
     const call = ts.isVariableStatement(node) ? node.declarationList.declarations[0]?.initializer : undefined
@@ -122,6 +126,24 @@ test('page JSX, unmoved effects and extracted report effects preserve their beha
         return [expand(ts.factory.updateExpressionStatement(node, ts.factory.updateCallExpression(effect, effect.expression, effect.typeArguments, [effect.arguments[0], ts.factory.createArrayLiteralExpression(effect.arguments[1].elements.slice(0, 2))])))]
       }
       return [node]
+    }
+    if (ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(page) === 'useConversationTransition') {
+      assert.deepEqual(node.expression.arguments.map(arg => arg.getText(page)), ['pendingPrompt', 'setSubmittedPrompt', 'setPendingPrompt'])
+      for (const [state, setter] of [['pendingPrompt', 'setPendingPrompt'], ['submittedPrompt', 'setSubmittedPrompt']]) {
+        const owner = declarations(main.body).filter(declaration => ts.isArrayBindingPattern(declaration.name) && declaration.name.elements[0].name.text === state)
+        assert.equal(owner.length, 1)
+        assert.equal(owner[0].name.elements[1].name.text, setter)
+        assert.equal(owner[0].initializer.expression.getText(page), 'useState')
+      }
+      const transition = animation.get('useConversationTransition')
+      assert.equal(transition.body.statements.length, 1)
+      const [statement] = transition.body.statements
+      const effect = statement.expression
+      assert.equal(effect.expression.getText(), 'useEffect')
+      const dependencies = effect.arguments[1]
+      assert.deepEqual(dependencies.elements.map(item => item.getText()), ['pendingPrompt', 'setSubmittedPrompt', 'setPendingPrompt'])
+      // Compare the original timer/cleanup body and its reactive dependency.
+      return [ts.factory.updateExpressionStatement(statement, ts.factory.updateCallExpression(effect, effect.expression, effect.typeArguments, [effect.arguments[0], ts.factory.createArrayLiteralExpression(dependencies.elements.slice(0, 1))]))]
     }
     return []
   })
