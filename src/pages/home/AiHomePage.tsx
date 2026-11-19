@@ -32,150 +32,18 @@ import {
 import { useConsultationHistory } from '../../features/consultation/hooks/useConsultationHistory'
 import { useConsultationFlow } from '../../features/consultation/hooks/useConsultationFlow'
 import { useConsultationIntro } from '../../features/consultation/hooks/useConsultationIntro'
+import { useTypewriter } from '../../features/consultation/hooks/useTypewriter'
+import { useCategorySequence } from '../../features/consultation/hooks/useCategorySequence'
+import { useConversationTransition } from '../../features/consultation/hooks/useConversationTransition'
 import * as S from './AiHomePage.styles'
-
-const CATEGORY_TEXT_SEQUENCE = [
-  '가게 카테고리',
-  '1단계',
-  '어떤 가게에 가장 가까운가요?',
-  '아래 카테고리 중 하나를 선택해 주세요.',
-  ...STORE_CATEGORIES.map(({ label }) => label),
-  '선택하기',
-] as const
 
 const CATEGORY_CONFIRM_INDEX = 4 + STORE_CATEGORIES.length
 const ASSISTANT_RESPONSE_LOADING_DELAY = 1500
-const CONVERSATION_TRANSITION_DELAY = 480
 const STARTER_PROMPTS = [
   '수원역 근처에 브런치 카페를 열고 싶어요.',
   '직장인이 많이 찾는 점심 식당 입지를 추천해 주세요.',
   '20대가 많이 찾는 팝업스토어 위치를 찾고 싶어요.',
 ] as const
-
-function useTypewriter(
-  fullText: string | null,
-  initialDelay: number,
-  characterDelay: number,
-  isInstant = false,
-) {
-  const [displayedText, setDisplayedText] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
-
-  useEffect(() => {
-    const shouldReduceMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
-    const resetId = window.setTimeout(() => {
-      setDisplayedText(
-        fullText && (shouldReduceMotion || isInstant) ? fullText : '',
-      )
-      setIsTyping(Boolean(fullText) && !shouldReduceMotion && !isInstant)
-      setIsComplete(Boolean(fullText) && (shouldReduceMotion || isInstant))
-    }, 0)
-
-    if (!fullText || shouldReduceMotion || isInstant) {
-      return () => window.clearTimeout(resetId)
-    }
-
-    const characters = Array.from(fullText)
-    let characterIndex = 0
-    let intervalId: number | undefined
-
-    const delayId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        characterIndex += 1
-        setDisplayedText(characters.slice(0, characterIndex).join(''))
-
-        if (characterIndex >= characters.length) {
-          window.clearInterval(intervalId)
-          setIsTyping(false)
-          setIsComplete(true)
-        }
-      }, characterDelay)
-    }, initialDelay)
-
-    return () => {
-      window.clearTimeout(resetId)
-      window.clearTimeout(delayId)
-      window.clearInterval(intervalId)
-    }
-  }, [characterDelay, fullText, initialDelay, isInstant])
-
-  return { displayedText, isComplete, isTyping }
-}
-
-function useCategorySequence(isActive: boolean, isInstant = false) {
-  const [displayedItems, setDisplayedItems] = useState<string[]>(() =>
-    CATEGORY_TEXT_SEQUENCE.map(() => ''),
-  )
-  const [isComplete, setIsComplete] = useState(false)
-  const [activeItemIndex, setActiveItemIndex] = useState(-1)
-
-  useEffect(() => {
-    const shouldReduceMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
-    const resetId = window.setTimeout(() => {
-      setDisplayedItems(
-        isActive && (shouldReduceMotion || isInstant)
-          ? [...CATEGORY_TEXT_SEQUENCE]
-          : CATEGORY_TEXT_SEQUENCE.map(() => ''),
-      )
-      setIsComplete(isActive && (shouldReduceMotion || isInstant))
-      setActiveItemIndex(isActive && !shouldReduceMotion && !isInstant ? 0 : -1)
-    }, 0)
-
-    if (!isActive || shouldReduceMotion || isInstant) {
-      return () => window.clearTimeout(resetId)
-    }
-
-    let itemIndex = 0
-    let characterIndex = 0
-    let gapTicks = 0
-    let intervalId: number | undefined
-
-    const delayId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        if (gapTicks > 0) {
-          gapTicks -= 1
-          return
-        }
-
-        const characters = Array.from(CATEGORY_TEXT_SEQUENCE[itemIndex])
-        characterIndex += 1
-        const currentItemIndex = itemIndex
-        const activeItemText = characters.slice(0, characterIndex).join('')
-        setActiveItemIndex(currentItemIndex)
-        setDisplayedItems((currentItems) => {
-          const nextItems = [...currentItems]
-          nextItems[currentItemIndex] = activeItemText
-          return nextItems
-        })
-
-        if (characterIndex >= characters.length) {
-          itemIndex += 1
-          characterIndex = 0
-          gapTicks = 2
-
-          if (itemIndex >= CATEGORY_TEXT_SEQUENCE.length) {
-            window.clearInterval(intervalId)
-            setIsComplete(true)
-            setActiveItemIndex(-1)
-          }
-        }
-      }, 38)
-    }, 220)
-
-    return () => {
-      window.clearTimeout(resetId)
-      window.clearTimeout(delayId)
-      window.clearInterval(intervalId)
-    }
-  }, [isActive, isInstant])
-
-  return { activeItemIndex, displayedItems, isComplete }
-}
 
 function ArrowUpIcon() {
   return (
@@ -372,26 +240,7 @@ function AiHomePage({ user }: { user: AuthSession['user'] }) {
     initialTypewriter.isComplete,
     isRestoredSession,
   )
-  useEffect(() => {
-    if (!pendingPrompt) {
-      return
-    }
-
-    let handoffId: number | undefined
-    const transitionId = window.setTimeout(() => {
-      setSubmittedPrompt(pendingPrompt)
-      handoffId = window.setTimeout(() => {
-        setPendingPrompt((currentPrompt) =>
-          currentPrompt === pendingPrompt ? null : currentPrompt,
-        )
-      }, 220)
-    }, CONVERSATION_TRANSITION_DELAY)
-
-    return () => {
-      window.clearTimeout(transitionId)
-      window.clearTimeout(handoffId)
-    }
-  }, [pendingPrompt])
+  useConversationTransition(pendingPrompt, setSubmittedPrompt, setPendingPrompt)
 
   const { cancelIntro } = useConsultationIntro({
     submittedPrompt,

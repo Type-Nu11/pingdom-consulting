@@ -10,6 +10,7 @@
     "test:flow": "node tests/browser/consultation-flow-state.mjs",
     "test:intro": "node tests/browser/consultation-intro.mjs",
     "test:report": "node tests/browser/analysis-report.mjs",
+    "test:animation": "node tests/browser/consultation-animation.mjs",
     "test:location": "node --test tests/location.test.mjs",
     "test:auth": "node --test tests/auth.test.mjs",
     "test:pingcha": "node --test tests/pingcha.test.mjs",
